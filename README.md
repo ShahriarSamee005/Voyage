@@ -60,6 +60,7 @@ src/
   ui/                   React overlay: HUD, Rover Hub, dialogue, pause, title/destination/end screens
 public/assets/          sprites, tiles, NASA photos, narration MP3s
 scripts/tag-voice.mjs   writes AI acknowledgment into narration MP3 metadata
+scripts/make-wheel-spin.mjs   builds the rover wheel-spin overlays (npm run wheel-spin; rerun if the rover art changes)
 ```
 
 ## Rules we hold to

@@ -44,9 +44,9 @@ export function TitleScreen() {
       {/* the player rover, silhouetted on the near ridge */}
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img
-        src="/assets/rovers/player/player_W.png"
+        src="/assets/rovers/player/player_E.png"
         alt=""
-        className="absolute bottom-[72px] left-[150px] w-[150px] [clip-path:inset(0_0_5%_0)] [image-rendering:pixelated]"
+        className="absolute bottom-[62px] left-[140px] w-[170px]"
         style={{ filter: "brightness(0.75) saturate(0.9)" }}
       />
 

@@ -17,7 +17,7 @@ Voyage is a 10-minute browser game that turns NASA's abandoned Mars rovers into 
 
 - **Demo (≤ 30 s video):** ⟨YouTube / Drive link⟩
 - **Final project (playable):** https://voyage-cyan-three.vercel.app (public — use this alias, not the `*-arifhaxns-projects.vercel.app` URLs, which require a Vercel login)
-- **Source code:** ⟨GitHub repo URL⟩
+- **Source code:** https://github.com/ShahriarSamee005/Voyage (make sure the repo is **public** — judges can't sign in)
 
 ## Detailed description
 

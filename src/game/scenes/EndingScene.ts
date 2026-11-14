@@ -49,7 +49,7 @@ export class EndingScene extends Phaser.Scene {
     }
 
     // Our rover, facing the distant Earth; its power (light) fades over the monologue.
-    const rover = this.add.image(W * 0.3, HORIZON + 50, "player_W", "body").setOrigin(0.5, 1).setScale(0.4);
+    const rover = this.add.image(W * 0.3, HORIZON + 50, "player_E", "body").setOrigin(0.5, 1).setScale(0.6); // faces right, toward Earth
     this.tweens.addCounter({
       from: 255,
       to: 70,

@@ -34,11 +34,54 @@ export function makeGroundTexture(scene: Phaser.Scene) {
   canvasTex.refresh();
 }
 
-/** Player rover frames carry a baked direction label at the bottom; expose a cropped "body" frame. */
+/**
+ * Expose a "body" frame on each player rover texture. The updated 256×256 frames are clean,
+ * so "body" is the whole frame (kept as a named frame so scenes don't depend on the art's layout).
+ */
 export function cropPlayerFrames(scene: Phaser.Scene) {
-  for (const d of ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]) {
+  for (const d of PLAYER_DIRS) {
     const tex = scene.textures.get(`player_${d}`);
-    if (!tex.has("body")) tex.add("body", 0, 0, 0, 357, 410);
+    if (!tex.has("body")) tex.add("body", 0, 0, 0, 256, 256);
+  }
+}
+
+export const PLAYER_DIRS = ["N", "NE", "E", "SE", "S", "SW", "W", "NW"] as const;
+/** Frames per wheel-spin loop — must match FRAMES in scripts/make-wheel-spin.mjs. */
+export const WHEEL_SPIN_FRAMES = 5;
+const WHEEL_SPIN_FPS = 15;
+export const wheelSpinTexture = (dir: string) => `player_${dir}_spin`;
+export const wheelSpinAnim = (dir: string) => `player_spin_${dir}`;
+
+/**
+ * Wheel-spin spritesheets: for each direction, frame 0 is the plain rover and frames 1..4 have the
+ * pre-rendered wheel overlay (`player_{D}_wheels`, from `npm run wheel-spin`) drawn on top —
+ * hubs turning in the side views, tread stripes rolling in the others. Also registers a looping
+ * animation per direction. Needs `player_{D}` and `player_{D}_wheels` loaded.
+ */
+export function makeWheelSpin(scene: Phaser.Scene) {
+  const S = 256;
+  for (const d of PLAYER_DIRS) {
+    const key = wheelSpinTexture(d);
+    if (!scene.textures.exists(key)) {
+      const base = scene.textures.get(`player_${d}`).getSourceImage() as HTMLImageElement;
+      const wheels = scene.textures.get(`player_${d}_wheels`).getSourceImage() as HTMLImageElement;
+      const tex = scene.textures.createCanvas(key, S * WHEEL_SPIN_FRAMES, S)!;
+      const ctx = tex.getContext();
+      for (let k = 0; k < WHEEL_SPIN_FRAMES; k++) {
+        ctx.drawImage(base, k * S, 0, S, S);
+        if (k > 0) ctx.drawImage(wheels, (k - 1) * S, 0, S, S, k * S, 0, S, S);
+        tex.add(k, 0, k * S, 0, S, S);
+      }
+      tex.refresh();
+    }
+    if (!scene.anims.exists(wheelSpinAnim(d))) {
+      scene.anims.create({
+        key: wheelSpinAnim(d),
+        frames: scene.anims.generateFrameNumbers(key, { start: 0, end: WHEEL_SPIN_FRAMES - 1 }),
+        frameRate: WHEEL_SPIN_FPS,
+        repeat: -1,
+      });
+    }
   }
 }
 

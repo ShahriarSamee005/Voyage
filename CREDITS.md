@@ -35,4 +35,4 @@ Geist and Geist Mono (SIL OFL), Orbitron (SIL OFL) — self-hosted via `next/fon
 - **AI audio and code are acknowledged in text and metadata:**
   - Text: this file, plus the credits on the title and end screens.
   - Metadata: the page's `ai-generated-content` meta tag, and ID3 tags on every narration MP3 (`npm run tag-voice`).
-- **No NASA branding in generated content:** the NASA "meatball" logo that came with the AI player-rover art was painted out of the 4 frames that showed it (N, NE, NW, SE) on Nov 14. Mission Control and the Voyage mission are fictional and imply no NASA endorsement.
+- **No NASA branding in generated content:** the player rover now uses the team's updated sprite sheet (Nov 14), which carries a lightning-bolt emblem instead of the NASA "meatball". Mission Control and the Voyage mission are fictional and imply no NASA endorsement.

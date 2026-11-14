@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { cropPlayerFrames, makeCinematicTextures, makeGroundTexture } from "../art";
+import { PLAYER_DIRS, cropPlayerFrames, makeCinematicTextures, makeGroundTexture, makeWheelSpin, wheelSpinTexture } from "../art";
 import { runStore } from "../state/runStore";
 import type { Stage } from "../state/types";
 
@@ -33,6 +33,8 @@ export class BootScene extends Phaser.Scene {
     this.load.image("flat_1", "/assets/terrain/flat_tile_1.png");
     for (const d of ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]) {
       this.load.image(`player_${d}`, `/assets/rovers/player/player_${d}.png`);
+      // Wheel-spin overlays (scripts/make-wheel-spin.mjs), composited into spritesheets in create().
+      this.load.image(`player_${d}_wheels`, `/assets/rovers/player/spin/player_${d}_wheels.png`);
     }
     this.load.image("hist_sojourner", "/assets/rovers/sojourner/sojourner_SE.png");
     // 286px copy of the 1303px source (drawn ~143px wide) — saves ~1.5 MB on venue Wi-Fi.
@@ -47,11 +49,12 @@ export class BootScene extends Phaser.Scene {
 
   create() {
     cropPlayerFrames(this);
+    makeWheelSpin(this);
     // Rover/rock illustrations are always drawn well below their source size; nearest-neighbour
     // minification drops pixels unevenly (jagged, shimmering edges), so smooth just these.
     // Terrain tiles and procedural pixel art stay nearest-neighbour (pixelArt config).
     const smooth = [
-      ...["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map((d) => `player_${d}`),
+      ...PLAYER_DIRS.flatMap((d) => [`player_${d}`, wheelSpinTexture(d)]),
       "hist_sojourner",
       "hist_spirit",
       "hist_opportunity",

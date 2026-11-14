@@ -24,7 +24,16 @@ export default function PhaserGame() {
       // Dev-only console handles for debugging/QA.
       Object.assign(window, { __game: game, __run: { runStore, actions } });
     }
-    return () => game.destroy(true);
+    // Refit the canvas whenever the stage box changes size (window resize, fullscreen,
+    // a sidebar closing) — Phaser's own polling can lag behind container-only resizes.
+    const ro = new ResizeObserver(() => {
+      if (game.isBooted) game.scale.refresh();
+    });
+    ro.observe(containerRef.current);
+    return () => {
+      ro.disconnect();
+      game.destroy(true);
+    };
   }, []);
 
   return <div ref={containerRef} className="h-full w-full" />;

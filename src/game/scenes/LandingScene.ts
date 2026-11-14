@@ -4,6 +4,7 @@ import { GAME_HEIGHT as H, GAME_WIDTH as W } from "../constants";
 import { lineSeconds, playLines, wait } from "../cinematic";
 import { actions } from "../state/runStore";
 import { audio } from "../audio/engine";
+import { wheelSpinAnim, wheelSpinTexture } from "../art";
 
 // Mars arrival (appflow §2.5), automatic and unskippable, in the locked order:
 // approach + APPROVED landing monologue → our (fictional) lander touches down → our rover deploys
@@ -106,9 +107,12 @@ export class LandingScene extends Phaser.Scene {
     await wait(this, 1.2);
 
     // Our rover deploys and rolls onto Martian soil.
-    const rover = this.add.image(lander.x + 10, HORIZON - 15, "player_W", "body").setScale(0.2).setOrigin(0.5, 1);
+    // Side-on, facing right (east) as it rolls off the lander.
+    const rover = this.add.sprite(lander.x + 10, HORIZON - 15, wheelSpinTexture("E"), 0).setScale(0.3).setOrigin(0.5, 1);
     this.present.add(rover);
+    rover.play(wheelSpinAnim("E")); // wheels turn as it rolls off the lander
     await this.tweenAsync({ targets: rover, x: lander.x + 230, y: HORIZON + 60, duration: 2600, ease: "Sine.easeInOut" });
+    rover.stop();
     this.dustBurst(rover.x, HORIZON + 60, 10);
     await wait(this, 1.0);
 

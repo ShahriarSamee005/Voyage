@@ -5,7 +5,7 @@ Text is **verbatim from PRD §4.8** — paste exactly, including punctuation (th
 **How to save:** one MP3 per line → `voyage/public/assets/audio/voice/<id>.mp3` (e.g. `landing-3.mp3`).
 Then run `npm run tag-voice` (adds the required AI acknowledgment to each MP3's metadata) and tell Claude — it registers them in `src/game/audio/voiceClips.ts` and checks the sync.
 
-Already recorded: `opening-1`, `opening-4`, `opening-5`.
+All 17 lines are recorded, tagged and registered in `src/game/audio/voiceClips.ts` (Nov 14 2026).
 
 ## Mission Control — voice "Martin – Calm, Clear Narrator"
 

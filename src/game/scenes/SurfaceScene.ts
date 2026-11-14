@@ -5,17 +5,18 @@ import { actions, isWorldPaused, POWER_TOOL_ID, runStore, TRACTION_TOOL_ID } fro
 import type { EncounterStep, RunState, SolarCondition, TractionStatus } from "../state/types";
 import { stepPower } from "../systems/power";
 import { GAME_HEIGHT, GAME_WIDTH } from "../config";
+import { wheelSpinAnim, wheelSpinTexture } from "../art";
 
 // Mars surface — one scene, rebuilt per leg from LEGS (Sojourner → Spirit → Opportunity).
 // Encounter logic lives in runStore actions; this scene handles the world, input and timing.
 
-const PLAYER_SCALE = 0.3;
-const PLAYER_FRAME = { width: 357, height: 410 }; // crops the baked direction labels off the source frames
+// Updated player rover (Nov 14): clean 256×256 frames, no baked labels, no NASA logo.
+const PLAYER_SCALE = 0.47; // ≈ 90 px wide side-on, same on-screen size as the previous art
+const PLAYER_FRAME = { width: 256, height: 256 };
 
 type Dir = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
-// The source sheet's labels point the opposite way (its "N" frame shows the rover's front,
-// i.e. driving down the screen). Map movement direction → texture to use.
-const TEXTURE_FOR_DIR: Record<Dir, Dir> = { N: "S", NE: "SW", E: "W", SE: "NW", S: "N", SW: "NE", W: "E", NW: "SE" };
+// The updated sheet is labelled correctly (N = driving up the screen), so frames map 1:1.
+// Each direction uses its wheel-spin spritesheet (frame 0 = wheels at rest; see art.ts).
 
 // Historical rover art per leg (textures loaded by BootScene). Sojourner is drawn visibly smaller
 // than the MER twins (design.md §4.2).
@@ -94,10 +95,11 @@ export class SurfaceScene extends Phaser.Scene {
 
     // Player rover ("body" frames are cropped above the baked labels by BootScene).
     this.toolRing = this.add.ellipse(0, 0, 120, 44).setStrokeStyle(3, 0x68d7e9, 0.9).setVisible(false);
-    this.player = this.physics.add.sprite(spawn.x, spawn.y, `player_${TEXTURE_FOR_DIR.N}`, "body");
+    this.player = this.physics.add.sprite(spawn.x, spawn.y, wheelSpinTexture("N"), 0);
     this.player.setScale(PLAYER_SCALE).setOrigin(0.5, 0.85).setCollideWorldBounds(true);
     const body = this.player.body as Phaser.Physics.Arcade.Body;
-    body.setSize(200, 110).setOffset((PLAYER_FRAME.width - 200) / 2, PLAYER_FRAME.height - 150);
+    // Collision footprint around the wheels (~60×33 px in the world, as before).
+    body.setSize(128, 70).setOffset((PLAYER_FRAME.width - 128) / 2, PLAYER_FRAME.height - 96);
     this.physics.add.collider(this.player, obstacles);
 
     // Chapter mood + weather layers (screen-space).
@@ -254,6 +256,7 @@ export class SurfaceScene extends Phaser.Scene {
 
     if (paused) {
       this.player.setVelocity(0, 0);
+      this.player.anims.stop(); // wheels rest while the hub/dialogue/pause is open
       if (!this.wasPaused) this.physics.world.pause();
       this.wasPaused = true;
       this.edgeArrow.clear();
@@ -341,6 +344,7 @@ export class SurfaceScene extends Phaser.Scene {
 
     // ---- power ----
     const spinning = throttle && !severe; // wheels spin (and cost power) even when stuck
+    this.spinWheels(spinning && !s.outOfPower);
     this.stationarySeconds = moving || spinning ? 0 : this.stationarySeconds + dt;
     const power = stepPower({
       battery: s.batteryChargePercent,
@@ -454,8 +458,20 @@ export class SurfaceScene extends Phaser.Scene {
     const dir = order[idx];
     if (dir !== this.facing) {
       this.facing = dir;
-      this.player.setTexture(`player_${TEXTURE_FOR_DIR[dir]}`, "body");
+      const playing = this.player.anims.isPlaying;
+      const frame = Number(this.player.frame.name) || 0;
+      this.player.anims.stop();
+      this.player.setTexture(wheelSpinTexture(dir), frame);
+      // Keep the wheels turning through the turn, from the same point in the loop.
+      if (playing) this.player.anims.play({ key: wheelSpinAnim(dir), startFrame: frame });
     }
+  }
+
+  /** Individual wheels turn whenever the motors are driving them — even spinning in soft soil. */
+  private spinWheels(on: boolean) {
+    const a = this.player.anims;
+    if (on && !a.isPlaying) a.play({ key: wheelSpinAnim(this.facing), startFrame: Number(this.player.frame.name) || 0 });
+    else if (!on && a.isPlaying) a.stop(); // wheels stop where they are
   }
 
   private updateCinematicCamera(s: RunState) {

@@ -24,10 +24,9 @@ export function MyRoverView() {
     <section className="flex h-full gap-6 p-6" aria-label="My Rover system status">
       <div className="flex w-[300px] shrink-0 flex-col gap-4">
         <div className="flex h-[300px] items-center justify-center rounded-md border border-ui-border/70 bg-ui-panel">
-          <div className="h-[250px] w-[218px] overflow-hidden">
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/assets/rovers/player/player_N.png" alt="Your rover" className="w-[218px] [image-rendering:pixelated]" />
-          </div>
+          {/* Front 3/4 view (south-east frame) of the player rover. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/assets/rovers/player/player_SE.png" alt="Your rover" className="h-[256px] w-[256px]" />
         </div>
         <div className="rounded-md border border-ui-border/70 bg-ui-panel p-4">
           <div className="mb-1 font-mono text-[12px] tracking-widest text-ui-cyan">STATUS SUMMARY</div>
