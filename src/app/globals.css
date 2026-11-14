@@ -1,0 +1,65 @@
+@import "tailwindcss";
+
+/* design.md §1.2 palette tokens (DESIGN DEFAULT — refine after contrast tests) */
+:root {
+  --ui-background: #0c1828;
+  --ui-panel: #10263a;
+  --ui-panel-raised: #183650;
+  --ui-border: #3f667c;
+  --ui-cyan: #68d7e9;
+  --ui-amber: #f1aa61;
+  --ui-warning: #e6a14a;
+  --ui-danger: #d96b55;
+  --ui-text: #f0f4f5;
+  --ui-muted: #a9bdcb;
+  --mars-rust: #b65d3a;
+  --mars-clay: #d47946;
+  --mars-shadow: #713a35;
+}
+
+@theme inline {
+  --color-ui-background: var(--ui-background);
+  --color-ui-panel: var(--ui-panel);
+  --color-ui-panel-raised: var(--ui-panel-raised);
+  --color-ui-border: var(--ui-border);
+  --color-ui-cyan: var(--ui-cyan);
+  --color-ui-amber: var(--ui-amber);
+  --color-ui-warning: var(--ui-warning);
+  --color-ui-danger: var(--ui-danger);
+  --color-ui-text: var(--ui-text);
+  --color-ui-muted: var(--ui-muted);
+  --color-mars-rust: var(--mars-rust);
+  --color-mars-clay: var(--mars-clay);
+  --color-mars-shadow: var(--mars-shadow);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-orbitron);
+}
+
+/* Letterbox bars around the 16:9 canvas are black. */
+html,
+body {
+  background: #000;
+  color: var(--ui-text);
+}
+
+canvas {
+  image-rendering: pixelated;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+  }
+}

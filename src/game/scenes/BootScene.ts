@@ -1,0 +1,81 @@
+import * as Phaser from "phaser";
+import { cropPlayerFrames, makeCinematicTextures, makeGroundTexture } from "../art";
+import { runStore } from "../state/runStore";
+import type { Stage } from "../state/types";
+
+// Loads every shared asset once, then acts as the stage director: whenever the run's
+// stage changes, it starts the matching scene and stops the others (appflow §1 order).
+
+const SCENE_FOR_STAGE: Record<Stage, string> = {
+  opening: "Opening",
+  rocket: "Rocket",
+  landing: "Landing",
+  surface: "Surface",
+  ending: "Ending",
+};
+
+export class BootScene extends Phaser.Scene {
+  private current: Stage | null = null;
+
+  constructor() {
+    super("Boot");
+  }
+
+  preload() {
+    // Simple loading bar so a slow venue connection never shows a blank screen.
+    const { width: W, height: H } = this.scale;
+    this.add.text(W / 2, H / 2 - 40, "PREPARING MISSION", { fontFamily: "monospace", fontSize: "18px", color: "#68d7e9" }).setOrigin(0.5);
+    this.add.rectangle(W / 2, H / 2, 420, 14).setStrokeStyle(1, 0x3f667c);
+    const bar = this.add.rectangle(W / 2 - 208, H / 2, 0, 8, 0xf1aa61).setOrigin(0, 0.5);
+    this.load.on(Phaser.Loader.Events.PROGRESS, (p: number) => bar.setSize(416 * p, 8));
+    this.load.once(Phaser.Loader.Events.COMPLETE, () => this.children.removeAll(true));
+
+    this.load.image("flat_1", "/assets/terrain/flat_tile_1.png");
+    for (const d of ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]) {
+      this.load.image(`player_${d}`, `/assets/rovers/player/player_${d}.png`);
+    }
+    this.load.image("hist_sojourner", "/assets/rovers/sojourner/sojourner_SE.png");
+    // 286px copy of the 1303px source (drawn ~143px wide) — saves ~1.5 MB on venue Wi-Fi.
+    this.load.image("hist_spirit", "/assets/rovers/spirit/spirit_stuck_game.png");
+    this.load.image("hist_opportunity", "/assets/rovers/opportunity/opportunity_SW.png");
+    for (const r of ["rock_large_1", "rock_large_2", "rock_medium_1", "rock_medium_2"]) {
+      this.load.image(r, `/assets/props/${r}.png`);
+    }
+    // Real NASA image shown at the end of the 1997 flashback (PIA00611).
+    this.load.image("nasa_pf_day1", "/assets/nasa-photos/sojourner/sojourner-on-mars.jpg");
+  }
+
+  create() {
+    cropPlayerFrames(this);
+    // Rover/rock illustrations are always drawn well below their source size; nearest-neighbour
+    // minification drops pixels unevenly (jagged, shimmering edges), so smooth just these.
+    // Terrain tiles and procedural pixel art stay nearest-neighbour (pixelArt config).
+    const smooth = [
+      ...["N", "NE", "E", "SE", "S", "SW", "W", "NW"].map((d) => `player_${d}`),
+      "hist_sojourner",
+      "hist_spirit",
+      "hist_opportunity",
+      "rock_large_1",
+      "rock_large_2",
+      "rock_medium_1",
+      "rock_medium_2",
+    ];
+    for (const key of smooth) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
+    makeGroundTexture(this);
+    makeCinematicTextures(this);
+
+    const sync = () => {
+      const stage = runStore.get().stage;
+      if (stage === this.current) return;
+      this.current = stage;
+      for (const key of Object.values(SCENE_FOR_STAGE)) {
+        if (this.scene.isActive(key) || this.scene.isPaused(key)) this.scene.stop(key);
+      }
+      this.scene.launch(SCENE_FOR_STAGE[stage]);
+    };
+    const unsubscribe = runStore.subscribe(sync);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, unsubscribe);
+    this.events.once(Phaser.Scenes.Events.DESTROY, unsubscribe);
+    sync();
+  }
+}
