@@ -10,7 +10,7 @@ function SubtitleLine({ subtitle }: { subtitle: Subtitle }) {
   const [typing, setTyping] = useState(true);
   const done = useCallback(() => setTyping(false), []);
   return (
-    <NarrationBox speaker={subtitle.speaker} live={typing}>
+    <NarrationBox speaker={subtitle.speaker} live={typing} aiVoice={!!subtitle.voiced}>
       <p className="min-h-[2.9em] text-[22px] leading-[1.45] text-[#e9f1f7]">
         <TypedText text={subtitle.text} seconds={subtitle.revealSeconds} accent={accentFor(subtitle.speaker)} onDone={done} />
       </p>

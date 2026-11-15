@@ -67,5 +67,5 @@ scripts/make-wheel-spin.mjs   builds the rover wheel-spin overlays (npm run whee
 
 - Every fact, date, photo caption and epitaph is checked against NASA/JPL sources. Dates are UTC.
 - Narration is verbatim from PRD §4.8.
-- AI pixel art is acknowledged in the in-game Credits panel (no on-screen watermark, team choice). Real NASA photos are unaltered and credited. Generated art contains no NASA branding.
+- AI content is marked with small corner tags in game ("AI-generated art", "AI voice", "AI-generated answers") and acknowledged in the Credits panel. Real NASA photos are unaltered and credited. Generated art contains no NASA branding.
 - `GEMINI_API_KEY` is never `NEXT_PUBLIC_` and is never committed.

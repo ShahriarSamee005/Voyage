@@ -18,6 +18,8 @@ export interface Subtitle {
   text: string;
   /** Typewriter reveal time: the voice clip's spoken length, or a reading pace without audio. */
   revealSeconds: number;
+  /** An AI-generated voice clip (ElevenLabs) is reading this line. */
+  voiced?: boolean;
 }
 
 export interface Banner {

@@ -8,6 +8,7 @@ import type { RunState } from "@/game/state/types";
 import { TUNING } from "@/game/tuning";
 import { sendChat, useThread } from "@/chat/chatStore";
 import { useRun } from "../useRun";
+import { AiTag } from "../AiTag";
 import { RoverModel3D } from "./RoverModel3D";
 import { SketchfabViewer } from "./SketchfabViewer";
 import { isTypingTarget, StoryPanel } from "./StoryPanel";
@@ -34,8 +35,9 @@ import {
 /**
  * Rover Hub — redesigned to the team's layout (Phase J, Nov 15): background + top bar + three
  * framed cards (team art, 9-slice scaled so they stretch cleanly). Left: the rover's portrait and
- * its five sections. Middle: photo gallery (or full story). Right: AI chat (or, for Voyage, its
- * systems status). Side cards collapse to the edges; the middle expands to fill. Cards animate in.
+ * its sections. Middle: photo gallery (or full story / 3D model). Right: AI chat. Voyage has no
+ * photo gallery (team decision, Nov 15): its middle card is its systems status and it has no right
+ * card. Side cards collapse to the edges; the middle expands to fill. Cards animate in.
  * Gameplay stays paused while open. Voyage (My Rover) and the rover archives stay separate views
  * (rules §4): Voyage shows status, never archive data; archives show history, never diagnostics.
  */
@@ -53,8 +55,8 @@ interface HubSubject {
   portraitTag: string;
   pixel?: boolean;
   gallery: (GalleryImage & { pixel?: boolean })[];
-  galleryTag: string;
-  galleryIntro: string;
+  galleryTag?: string;
+  galleryIntro?: string;
   imageLabel: string;
 }
 
@@ -116,7 +118,7 @@ const MODELS: Partial<Record<RoverId, HubModel>> = {
   },
 };
 
-// Voyage is fictional: its gallery is the game's own (AI-generated) mission art, labelled as such.
+// Voyage is fictional and has no photo gallery: its hub view is its systems status.
 const VOYAGE: HubSubject = {
   name: "Voyage",
   role: "YOUR ROVER",
@@ -125,34 +127,8 @@ const VOYAGE: HubSubject = {
   portrait: "/assets/rovers/player/player_SE.png",
   portraitTag: "AI ART",
   pixel: true,
-  galleryTag: "MISSION ART",
-  galleryIntro: "Art from your own mission: AI-generated, not NASA photos.",
   imageLabel: "AI-GENERATED ART",
-  gallery: [
-    {
-      src: "/assets/dashboards/web/title_bg.webp",
-      title: "Voyage at base camp",
-      caption: "Your rover beside the M-01 base before setting out to find the explorers left behind.",
-      credit: "Team AI'm not sure · AI-generated mission art",
-      date: "Mission start",
-    },
-    {
-      src: "/assets/rovers/player/player_SE.png",
-      title: "The Voyage rover",
-      caption: "Six wheels, solar power, a mast camera and a robotic arm: the rover you drive across Mars.",
-      credit: "Team AI'm not sure · AI-generated pixel art",
-      date: "Present day",
-      pixel: true,
-    },
-    {
-      src: "/assets/landing/crane_0.webp",
-      title: "Sky-crane descent stage",
-      caption: "The fictional Voyage lander lowered your rover to the surface on cables, then flew away.",
-      credit: "Team AI'm not sure · AI-generated art",
-      date: "Landing day",
-      pixel: true,
-    },
-  ],
+  gallery: [],
 };
 
 function subjectFor(id: HubId): HubSubject {
@@ -219,6 +195,8 @@ export function RoverHub() {
     >
       {/* eslint-disable-next-line @next/next/no-img-element */}
       <img src={`${ART}/background.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      {/* The hub's background and card frames are AI art; photos and models inside keep their NASA labels. */}
+      <AiTag label="AI-generated interface art" className="bottom-0 right-10 z-30" />
 
       <TopBar subject={subject} current={current} />
 
@@ -248,9 +226,11 @@ export function RoverHub() {
         {/* MIDDLE — gallery / story */}
         <div className="h-full min-w-0 flex-1 animate-[hub-rise_0.6s_cubic-bezier(.2,.8,.2,1)_0.22s_both]">
           <Frame src="card_middle" open>
-            {middle === "story" && current !== "voyage" ? (
+            {current === "voyage" ? (
+              <StatusPanel />
+            ) : middle === "story" ? (
               <StoryPanel key={current} rover={getRover(current)} />
-            ) : middle === "model" && model && current !== "voyage" ? (
+            ) : middle === "model" && model ? (
               <ModelPanel name={getRover(current).name} model={model} />
             ) : (
               <GalleryPanel subject={subject} index={photo} setIndex={setPhoto} onFullscreen={() => setFullscreen(true)} />
@@ -258,23 +238,21 @@ export function RoverHub() {
           </Frame>
         </div>
 
-        {/* RIGHT — AI chat (or Voyage's systems status) */}
+        {/* RIGHT — AI chat (rover archives only; Voyage's status fills the middle) */}
+        {current !== "voyage" && (
         <div
           className="h-full shrink-0 animate-[hub-from-right_0.55s_cubic-bezier(.2,.8,.2,1)_0.32s_both] transition-[width] duration-500 ease-[cubic-bezier(.2,.8,.2,1)]"
           style={{ width: rightOpen ? 360 : 60 }}
         >
           <Frame src="card_right" open={rightOpen}>
             {rightOpen ? (
-              current === "voyage" ? (
-                <StatusPanel onCollapse={() => setRightOpen(false)} />
-              ) : (
-                <ChatPanel rover={getRover(current)} inputRef={chatInputRef} onCollapse={() => setRightOpen(false)} />
-              )
+              <ChatPanel rover={getRover(current)} inputRef={chatInputRef} onCollapse={() => setRightOpen(false)} />
             ) : (
-              <CollapsedTab label={current === "voyage" ? "SYSTEMS" : "AI CHAT"} side="right" onOpen={() => setRightOpen(true)} />
+              <CollapsedTab label="AI CHAT" side="right" onOpen={() => setRightOpen(true)} />
             )}
           </Frame>
         </div>
+        )}
       </div>
 
       {fullscreen && (
@@ -385,7 +363,7 @@ function TopBar({ subject, current }: { subject: HubSubject; current: HubId }) {
             </button>
             {menuOpen && (
               <div className="absolute left-0 top-[52px] w-[300px] animate-[hub-drop_0.25s_ease-out_both] rounded-md border border-ui-cyan/60 bg-[#06111f]/[0.97] p-2 shadow-[0_10px_40px_rgba(0,0,0,0.6),0_0_18px_rgba(104,215,233,0.25)]">
-                <MenuItem active={current === "voyage"} title="VOYAGE" subtitle="Your rover · systems & mission art" icon={<IconRover size={22} />} onClick={() => pick("voyage")} />
+                <MenuItem active={current === "voyage"} title="VOYAGE" subtitle="Your rover · systems status" icon={<IconRover size={22} />} onClick={() => pick("voyage")} />
                 <div className="mx-2 my-2 border-t border-ui-cyan/25" />
                 <div className="px-3 pb-1 font-mono text-[11px] tracking-[0.3em] text-ui-muted">ROVER ARCHIVES</div>
                 {marsRovers.map((r) => {
@@ -492,7 +470,9 @@ function LeftPanel(props: {
 }) {
   const { subject, current } = props;
   const isVoyage = current === "voyage";
-  const items: { id: string; label: string; icon: ReactNode; locked?: boolean; active?: boolean; onClick?: () => void }[] = [
+  type Item = { id: string; label: string; icon: ReactNode; locked?: boolean; active?: boolean; onClick?: () => void };
+  const voyageItems: Item[] = [{ id: "status", label: "SYSTEMS STATUS", icon: <IconGauge size={26} />, active: true }];
+  const archiveItems: Item[] = [
     {
       id: "gallery",
       label: "PHOTO GALLERY",
@@ -500,9 +480,10 @@ function LeftPanel(props: {
       active: props.middle === "gallery" && props.section !== "chat",
       onClick: () => actions.setArchiveSection("gallery"),
     },
-    isVoyage
-      ? { id: "status", label: "SYSTEMS STATUS", icon: <IconGauge size={26} />, active: props.section === "chat", onClick: props.onChat }
-      : { id: "chat", label: "AI CHAT", icon: <IconChat size={26} />, active: props.section === "chat", onClick: props.onChat },
+    { id: "chat", label: "AI CHAT", icon: <IconChat size={26} />, active: props.section === "chat", onClick: props.onChat },
+  ];
+  const items: Item[] = [
+    ...(isVoyage ? voyageItems : archiveItems),
     isVoyage
       ? { id: "story", label: "FULL STORY", icon: <IconBook size={26} />, locked: true }
       : { id: "story", label: "FULL STORY", icon: <IconBook size={26} />, active: props.middle === "story", onClick: () => actions.setArchiveSection("story") },
@@ -538,7 +519,7 @@ function LeftPanel(props: {
         <div className="mt-1 whitespace-nowrap font-mono text-[11.5px] tracking-[0.14em] text-ui-cyan/85">{subject.role}</div>
         <div className="font-mono text-[12px] tracking-[0.2em] text-ui-text/75">{subject.years}</div>
       </div>
-      {/* the five sections */}
+      {/* the sections */}
       <nav aria-label="Rover sections" className="flex min-h-0 flex-1 flex-col justify-between gap-2">
         {items.map((it) => (
           <SectionButton key={it.id} {...it} />
@@ -859,15 +840,15 @@ function ChatPanel({ rover, inputRef, onCollapse }: { rover: Rover; inputRef: Re
           <IconSend size={22} />
         </button>
       </form>
-      <p className="mt-1.5 shrink-0 font-mono text-[10px] tracking-wide text-ui-muted">Answers come only from {rover.name}&apos;s verified mission records.</p>
+      <p className="mt-1.5 shrink-0 font-mono text-[10px] tracking-wide text-ui-muted">✦ AI-generated answers, only from {rover.name}&apos;s verified mission records.</p>
     </div>
   );
 }
 
 // ---------------------------------------------------------------------------------------------
-// Right card for Voyage: systems status (status only, no controls — design.md §7.3)
+// Middle card for Voyage: systems status (status only, no controls — design.md §7.3)
 
-function StatusPanel({ onCollapse }: { onCollapse: () => void }) {
+function StatusPanel({ onCollapse }: { onCollapse?: () => void }) {
   const battery = useRun((s) => Math.round(s.batteryChargePercent));
   const solar = useRun((s) => s.solarCondition);
   const panelDamaged = useRun((s) => s.panelDamaged);
@@ -895,7 +876,7 @@ function StatusPanel({ onCollapse }: { onCollapse: () => void }) {
         </span>
         <h3 className="font-display text-[22px] font-bold tracking-[0.14em] text-[#e9f6fb]">SYSTEMS</h3>
         <span className="ml-auto mr-2 font-mono text-[14px] text-ui-cyan/70">{"///"}</span>
-        <CollapseButton side="right" onClick={onCollapse} />
+        {onCollapse && <CollapseButton side="right" onClick={onCollapse} />}
       </div>
       <p className="mt-2 shrink-0 text-[14.5px] leading-snug text-ui-text/85">{summary}</p>
       <div className="mt-3 min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 hub-scroll">

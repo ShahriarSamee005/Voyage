@@ -11,6 +11,15 @@ import { PauseMenu } from "./PauseMenu";
 import { RoverHub } from "./hub/RoverHub";
 import { TravelCard } from "./TravelCard";
 import { CinematicLayer } from "./CinematicLayer";
+import { AiTag } from "./AiTag";
+
+/** Where the AI-art watermark sits in each stage: the one corner its HUD leaves free. */
+function StageAiTag({ stage }: { stage: string }) {
+  if (stage === "rocket") return <AiTag corner="bottom-left" />; // coins top-left, Esc bottom-right
+  // Surface: every corner holds a HUD panel, so the tag tucks under the bottom-left button.
+  if (stage === "surface") return <AiTag className="bottom-[2px] left-5" />;
+  return <AiTag corner="bottom-right" />; // cinematics: subtitles sit bottom-centre
+}
 
 /** Everything React draws over the game canvas, in 1280×720 logical pixels. */
 export function Overlay() {
@@ -54,6 +63,7 @@ export function Overlay() {
       {dialogue && <DialoguePanel dialogue={dialogue} />}
       {hubOpen && <RoverHub />}
       {travel && <TravelCard travel={travel} />}
+      {!hubOpen && !travel && <StageAiTag stage={stage} />}
       <PauseMenu />
     </div>
   );

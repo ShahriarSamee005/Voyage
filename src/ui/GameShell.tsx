@@ -9,6 +9,7 @@ import { useShortcuts } from "./useShortcuts";
 import { TitleScreen } from "./screens/TitleScreen";
 import { DestinationSelect } from "./screens/DestinationSelect";
 import { DataBeamedHome } from "./screens/DataBeamedHome";
+import { AiTag } from "./AiTag";
 import { audio } from "@/game/audio/engine";
 import { startAudioDirector } from "@/game/audio/director";
 
@@ -72,9 +73,9 @@ export default function GameShell() {
           {screen === "destination" && <DestinationSelect />}
           {screen === "game" && <Overlay />}
           {screen === "data_home" && <DataBeamedHome />}
-          {/* Team decision (Nov 15): no on-screen AI-art watermark. The AI-art acknowledgment lives in
-              the title's Credits panel, CREDITS.md and the page's ai-generated-content meta tag;
-              real NASA photos are still labelled in-game as NASA images. */}
+          {/* Small corner watermarks wherever AI-generated art is on screen (team decision, Nov 15,
+              reversing the earlier "credits only" choice). Real NASA photos keep their NASA labels. */}
+          {(screen === "title" || screen === "destination") && <AiTag corner="bottom-right" />}
         </div>
       </div>
     </div>

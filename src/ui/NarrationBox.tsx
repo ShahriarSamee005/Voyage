@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import type { Dialogue } from "@/game/state/types";
+import { AiTag } from "./AiTag";
 
 // One styled comms panel for ALL narration text (fix J1/J2): cinematic subtitles and in-game
 // dialogue both render through it. Chamfered terminal frame matching the rover-terminal art,
@@ -28,7 +29,10 @@ export function NarrationBox({
   className = "",
   children,
   footer,
+  aiVoice = false,
 }: {
+  /** The line is read by an AI-generated voice (ElevenLabs): shows a tiny corner tag. */
+  aiVoice?: boolean;
   speaker: NarrationSpeaker;
   /** Optional context after the speaker name, e.g. "Mission log". */
   tag?: string;
@@ -66,6 +70,8 @@ export function NarrationBox({
           aria-hidden
         />
       </div>
+
+      {aiVoice && <AiTag label="AI voice" className="right-5 top-[18px] bg-transparent text-white/35" />}
 
       <div className="relative px-8 pb-4 pt-5">
         {children}

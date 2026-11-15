@@ -137,8 +137,6 @@ export class RocketScene extends Phaser.Scene {
     this.starsNear = Array.from({ length: 50 }, () =>
       this.add.image(rng.between(0, W), rng.between(0, H), "px_white").setScale(2 / 3).setAlpha(0.9),
     );
-    // Mars, distant, growing slightly as the lock completes.
-    this.add.circle(W - 90, 110, 26, 0xb65d3a).setName("mars");
 
     this.corridor = this.add.graphics();
     this.sats = this.add.group();

@@ -58,6 +58,7 @@ function DialogueBody({ dialogue }: { dialogue: Dialogue }) {
         speaker={dialogue.speaker}
         tag={dialogue.title}
         live={typing}
+        aiVoice={!!dialogue.voice}
         footer={
           <div className="mt-3 flex justify-end">
             <button

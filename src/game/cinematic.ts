@@ -38,7 +38,7 @@ export async function speakLine(scene: Phaser.Scene, segment: ScriptSegment, ind
   if (isGone(scene)) return 0;
   const hold = clip !== null ? clip + 0.45 + extra * 0.6 : lineSeconds(text, extra);
   const revealSeconds = clip !== null ? clip * 0.9 : Math.min(hold * 0.6, text.length / 32);
-  actions.setSubtitle({ speaker: segment.speaker, text, revealSeconds });
+  actions.setSubtitle({ speaker: segment.speaker, text, revealSeconds, voiced: clip !== null });
   return hold;
 }
 
