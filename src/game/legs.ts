@@ -27,6 +27,13 @@ export interface LegConfig {
   /** Which encounter step allows scanning the historical rover. */
   scanStep: "approach" | "hazard";
   next: RoverId | null;
+  /**
+   * Jump point (Phase H): once the leg is complete the player drives here and CHOOSES when to
+   * jump to the next region. Null on the last leg.
+   */
+  checkpoint: { x: number; y: number } | null;
+  /** Where the real rover rests on Mars (degrees; N and E positive), for the jump map. */
+  site: { lat: number; lon: number };
 }
 
 export const LEGS: Record<RoverId, LegConfig> = {
@@ -42,6 +49,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     softSoil: null,
     scanStep: "approach",
     next: "spirit",
+    checkpoint: { x: 1700, y: 1540 }, // ~1,150 px from Sojourner: a real drive to the jump point
+    site: { lat: 19.13, lon: -33.22 }, // Mars Pathfinder landing site
   },
   spirit: {
     rover: "spirit",
@@ -55,6 +64,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     softSoil: { x: 3540, y: 590, coreRadius: 260, outerRadius: 470 },
     scanStep: "hazard",
     next: "opportunity",
+    checkpoint: { x: 2480, y: 1780 }, // ~1,100 px beyond the soft-soil edge
+    site: { lat: -14.57, lon: 175.47 }, // Spirit, Gusev Crater (Columbia Hills)
   },
   opportunity: {
     rover: "opportunity",
@@ -68,6 +79,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     softSoil: null,
     scanStep: "approach",
     next: null,
+    checkpoint: null,
+    site: { lat: -2.28, lon: -5.42 }, // Opportunity, Perseverance Valley
   },
 };
 

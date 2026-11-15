@@ -74,8 +74,13 @@ export default function GameShell() {
           {screen === "data_home" && <DataBeamedHome />}
           {/* Space Apps 2026: AI-generated images must carry a visible watermark. Shown wherever the
               AI pixel-art sprites appear; real NASA photos are labelled separately as NASA images. */}
-          {(screen === "title" || screen === "game") && (
-            <div className="absolute bottom-1 left-1/2 -translate-x-1/2 font-mono text-[10px] tracking-[0.25em] text-white/55 [text-shadow:0_0_3px_#000]">
+          {(screen === "destination" || screen === "game") && (
+            <div
+              className={`absolute font-mono text-[10px] tracking-[0.25em] text-white/55 [text-shadow:0_0_3px_#000] ${
+                // the terminal art has its console and character at bottom centre — keep the mark clear of them
+                screen === "destination" ? "bottom-[8px] right-[16px] text-white/70" : "bottom-1 left-1/2 -translate-x-1/2"
+              }`}
+            >
               PIXEL ART: AI-GENERATED
             </div>
           )}

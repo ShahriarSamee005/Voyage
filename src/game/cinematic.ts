@@ -23,6 +23,25 @@ export function wait(scene: Phaser.Scene, seconds: number): Promise<void> {
   return new Promise((resolve) => scene.time.delayedCall(seconds * 1000, () => resolve()));
 }
 
+/**
+ * Start ONE narration line (voice + typed subtitle) and return how long to hold it, in seconds:
+ * the clip's length plus a beat, or a reading-pace time when there's no audio. Callers run their
+ * visuals over exactly that time, so pictures stay in step with the voice (fix C2).
+ * Returns 0 if the scene is already gone.
+ */
+export async function speakLine(scene: Phaser.Scene, segment: ScriptSegment, index: number, extra = 0): Promise<number> {
+  if (isGone(scene)) return 0; // scene was stopped (e.g. run abandoned) — stop narrating
+  const text = segment.lines[index];
+  // Start the voice first so the typewriter can match its length (fix J2): the text types
+  // out over the spoken clip (ending just before the voice does), or at reading pace without it.
+  const clip = await audio.playVoice(voiceClipId(segment.id, index));
+  if (isGone(scene)) return 0;
+  const hold = clip !== null ? clip + 0.45 + extra * 0.6 : lineSeconds(text, extra);
+  const revealSeconds = clip !== null ? clip * 0.9 : Math.min(hold * 0.6, text.length / 32);
+  actions.setSubtitle({ speaker: segment.speaker, text, revealSeconds });
+  return hold;
+}
+
 /** Play every line of a segment as voice + subtitle; calls onLine(index) as each line starts. */
 export async function playLines(
   scene: Phaser.Scene,
@@ -31,12 +50,9 @@ export async function playLines(
 ): Promise<void> {
   const extra = opts.extraSeconds ?? 0;
   for (let i = 0; i < segment.lines.length; i++) {
-    if (isGone(scene)) return; // scene was stopped (e.g. run abandoned) — stop narrating
-    const text = segment.lines[i];
-    actions.setSubtitle({ speaker: segment.speaker, text });
+    const hold = await speakLine(scene, segment, i, extra);
+    if (isGone(scene)) return;
     opts.onLine?.(i);
-    const clip = await audio.playVoice(voiceClipId(segment.id, i));
-    const hold = clip !== null ? clip + 0.45 + extra * 0.6 : lineSeconds(text, extra);
     await wait(scene, hold);
   }
   actions.setSubtitle(null);

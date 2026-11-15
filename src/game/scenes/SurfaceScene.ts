@@ -12,9 +12,86 @@ import { wheelSpinAnim, wheelSpinTexture } from "../art";
 
 // Updated player rover (Nov 14): clean 256×256 frames, no baked labels, no NASA logo.
 const PLAYER_SCALE = 0.47; // ≈ 90 px wide side-on, same on-screen size as the previous art
+/** How close (px) to the jump point's centre the rover must be to jump (the ring is 220×80). */
+const JUMP_RADIUS = 120;
 const PLAYER_FRAME = { width: 256, height: 256 };
 
 type Dir = "N" | "NE" | "E" | "SE" | "S" | "SW" | "W" | "NW";
+
+/**
+ * Weather textures: a speck (soil kicked up when stuck), a seamless sheet of streaky haze that
+ * scrolls across the screen with the wind, and a full-screen visibility vignette.
+ */
+function makeWeatherTextures(scene: Phaser.Scene) {
+  if (!scene.textures.exists("dust_px")) {
+    const g = scene.make.graphics({ x: 0, y: 0 }, false);
+    g.fillStyle(0xf2c48e, 1).fillRect(0, 0, 3, 3);
+    g.generateTexture("dust_px", 3, 3);
+    g.destroy();
+  }
+  if (!scene.textures.exists("haze_sheet")) {
+    // Long, soft, wind-stretched wisps; each is drawn again one tile-width/height over, so the
+    // texture tiles seamlessly in both directions.
+    const w = 512;
+    const h = 256;
+    const tex = scene.textures.createCanvas("haze_sheet", w, h)!;
+    const ctx = tex.getContext();
+    const rng = mulberry32(2018); // the year of Opportunity's storm
+    for (let i = 0; i < 26; i++) {
+      const cx = rng() * w;
+      const cy = rng() * h;
+      const rx = 120 + rng() * 220;
+      const ry = 18 + rng() * 46;
+      const a = 0.12 + rng() * 0.22;
+      for (const ox of [-w, 0, w])
+        for (const oy of [-h, 0, h]) {
+          ctx.save();
+          ctx.translate(cx + ox, cy + oy);
+          ctx.scale(1, ry / rx);
+          const grad = ctx.createRadialGradient(0, 0, 0, 0, 0, rx);
+          grad.addColorStop(0, `rgba(255,255,255,${a})`);
+          grad.addColorStop(0.55, `rgba(255,255,255,${a * 0.45})`);
+          grad.addColorStop(1, "rgba(255,255,255,0)");
+          ctx.fillStyle = grad;
+          ctx.fillRect(-rx, -rx, rx * 2, rx * 2);
+          ctx.restore();
+        }
+    }
+    tex.refresh();
+  }
+  if (!scene.textures.exists("storm_vignette")) {
+    const w = 320;
+    const h = 180;
+    const tex = scene.textures.createCanvas("storm_vignette", w, h)!;
+    const ctx = tex.getContext();
+    ctx.save();
+    ctx.scale(1, h / w);
+    const grad = ctx.createRadialGradient(w / 2, w / 2, w * 0.18, w / 2, w / 2, w * 0.62);
+    grad.addColorStop(0, "rgba(70,32,12,0)");
+    grad.addColorStop(0.6, "rgba(90,42,16,0.55)");
+    grad.addColorStop(1, "rgba(60,26,10,0.95)");
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, w);
+    ctx.restore();
+    tex.refresh();
+  }
+}
+
+/**
+ * Screen rectangles (in 1280×720 game coordinates) of the React HUD panels marked
+ * `data-hud-avoid`. Read live each frame so wrapped text, warnings and prompts are all covered.
+ */
+function hudRects(): { x: number; y: number; w: number; h: number }[] {
+  const canvas = document.querySelector("canvas");
+  if (!canvas) return [];
+  const c = canvas.getBoundingClientRect();
+  if (!c.width) return [];
+  const k = GAME_WIDTH / c.width;
+  return [...document.querySelectorAll<HTMLElement>("[data-hud-avoid]")].map((el) => {
+    const r = el.getBoundingClientRect();
+    return { x: (r.left - c.left) * k, y: (r.top - c.top) * k, w: r.width * k, h: r.height * k };
+  });
+}
 // The updated sheet is labelled correctly (N = driving up the screen), so frames map 1:1.
 // Each direction uses its wheel-spin spritesheet (frame 0 = wheels at rest; see art.ts).
 
@@ -26,11 +103,25 @@ const HISTORIC: Record<string, { key: string; scale: number }> = {
   opportunity: { key: "hist_opportunity", scale: 0.3 },
 };
 
-// Weather overlay: same terrain, different haze/particles (design.md §2.5). Storm stays navigable.
-const WEATHER: Record<SolarCondition, { haze: number; dustPerSecond: number; speed: [number, number] }> = {
-  clear: { haze: 0, dustPerSecond: 0, speed: [0, 0] },
-  dusty: { haze: 0.14, dustPerSecond: 30, speed: [40, 110] },
-  dust_storm: { haze: 0.3, dustPerSecond: 140, speed: [260, 520] },
+// Weather overlay: same terrain, different sky (design.md §2.5). Storm stays navigable.
+// Fix E1 (revised Nov 15): the storm is HAZE, not particles — sheets of airborne dust flowing
+// across the screen with the wind, rolling dust clouds, gusts, dimmed sunlight and closing-in
+// visibility. Each condition is a target; the scene eases toward it every frame, so storms build
+// and clear instead of switching.
+interface WeatherLook {
+  haze: number; // ochre airborne-dust overlay
+  dim: number; // sunlight blocked (dark overlay)
+  vignette: number; // visibility closing in at the edges
+  clouds: number; // opacity of the rolling dust clouds
+  sheets: number; // opacity of the flowing haze sheets
+  wind: number; // px/s the haze travels across the screen
+  gust: number; // how strongly gusts swing everything (0–1)
+}
+const WEATHER: Record<SolarCondition | "severe", WeatherLook> = {
+  clear: { haze: 0, dim: 0, vignette: 0, clouds: 0, sheets: 0, wind: 30, gust: 0 },
+  dusty: { haze: 0.1, dim: 0.06, vignette: 0.18, clouds: 0.22, sheets: 0.3, wind: 60, gust: 0.25 },
+  dust_storm: { haze: 0.2, dim: 0.16, vignette: 0.45, clouds: 0.5, sheets: 0.65, wind: 150, gust: 0.55 },
+  severe: { haze: 0.3, dim: 0.3, vignette: 0.75, clouds: 0.78, sheets: 0.95, wind: 280, gust: 0.9 },
 };
 
 function mulberry32(seed: number) {
@@ -50,8 +141,15 @@ export class SurfaceScene extends Phaser.Scene {
   private edgeArrow!: Phaser.GameObjects.Graphics;
   private toolRing!: Phaser.GameObjects.Ellipse;
   private haze!: Phaser.GameObjects.Rectangle;
-  private dust!: Phaser.GameObjects.Particles.ParticleEmitter;
-  private weatherKey = "";
+  private dim!: Phaser.GameObjects.Rectangle;
+  private vignette!: Phaser.GameObjects.Image;
+  /** Flowing haze: two scrolling sheets (far/slow, near/fast). */
+  private hazeSheets: { sprite: Phaser.GameObjects.TileSprite; speed: number; base: number; phase: number; flow: number }[] = [];
+  private churn!: Phaser.GameObjects.Particles.ParticleEmitter; // bright soil kicked up when stuck
+  private dustClouds: { img: Phaser.GameObjects.Image; speed: number; base: number; phase: number; layer: number }[] = [];
+  private weatherNow: WeatherLook = { ...WEATHER.clear };
+  private weatherTarget: WeatherLook = { ...WEATHER.clear };
+  private weatherClock = 0;
   private unsubscribe?: () => void;
   private runId = 0;
   private wasPaused = false;
@@ -61,6 +159,25 @@ export class SurfaceScene extends Phaser.Scene {
   private wasSevere = false;
   private facing: Dir = "N";
   private cinematicPan = false;
+  /** Set by E's key-down event, consumed once by the next world update. */
+  private ePressQueued = false;
+  /** Craters placed on the ground; rocks keep clear of them. */
+  private craterZones: { x: number; y: number; r: number }[] = [];
+  private shadow!: Phaser.GameObjects.Image;
+  // Tire tracks (fix D3): a recycled pool of tread-mark stamps that fade out over time.
+  private tracks: { img: Phaser.GameObjects.Image; born: number; alpha: number }[] = [];
+  private trackPool: Phaser.GameObjects.Image[] = [];
+  private trackClock = 0;
+  private lastTrack: { x: number; y: number } | null = null;
+  private jumpPoint: {
+    glow: Phaser.GameObjects.Image;
+    ring: Phaser.GameObjects.Ellipse;
+    inner: Phaser.GameObjects.Ellipse;
+    lamp: Phaser.GameObjects.Arc;
+    beam: Phaser.GameObjects.Image;
+    label: Phaser.GameObjects.Text;
+    active: boolean;
+  } | null = null;
 
   constructor() {
     super("Surface");
@@ -76,18 +193,30 @@ export class SurfaceScene extends Phaser.Scene {
     this.wasSevere = false;
     this.wasPaused = false;
     this.cinematicPan = false;
-    this.weatherKey = "";
     this.facing = "N";
+    // The scene instance is reused across legs: reset per-leg collections here, not in initializers.
+    this.craterZones = [];
+    this.tracks = [];
+    this.trackPool = [];
+    this.trackClock = 0;
+    this.lastTrack = null;
+    this.jumpPoint = null;
     const { world, spawn, target } = this.leg;
 
     this.physics.world.setBounds(0, 0, world.width, world.height);
     this.buildGround();
     if (this.leg.softSoil) this.buildSoftSoil();
     const obstacles = this.buildRocks();
+    if (this.leg.checkpoint) this.buildJumpPoint(this.leg.checkpoint);
 
     // The abandoned rover for this leg, with a collider at its base.
     const hist = HISTORIC[this.leg.rover];
     const histImg = this.add.image(target.x, target.y, hist.key).setScale(hist.scale).setDepth(target.y);
+    this.add
+      .image(target.x, target.y + histImg.displayHeight * 0.36, "soft_shadow")
+      .setDisplaySize(histImg.displayWidth * 0.9, histImg.displayWidth * 0.24)
+      .setAlpha(0.55)
+      .setDepth(target.y - 1);
     if (!this.leg.softSoil) {
       const base = this.add.zone(target.x, target.y + histImg.displayHeight * 0.2, histImg.displayWidth * 0.6, histImg.displayHeight * 0.3);
       obstacles.add(base);
@@ -101,6 +230,13 @@ export class SurfaceScene extends Phaser.Scene {
     // Collision footprint around the wheels (~60×33 px in the world, as before).
     body.setSize(128, 70).setOffset((PLAYER_FRAME.width - 128) / 2, PLAYER_FRAME.height - 96);
     this.physics.add.collider(this.player, obstacles);
+
+    // Grounded shadow (fix D2): soft ellipse under the wheels, shaped to the facing, synced after
+    // the physics step so it never lags the rover by a frame.
+    this.shadow = this.add.image(spawn.x, spawn.y, "soft_shadow").setAlpha(0.75);
+    this.syncShadow();
+    this.events.on(Phaser.Scenes.Events.POST_UPDATE, this.syncShadow, this);
+    this.events.once(Phaser.Scenes.Events.SHUTDOWN, () => this.events.off(Phaser.Scenes.Events.POST_UPDATE, this.syncShadow, this));
 
     // Chapter mood + weather layers (screen-space).
     if (this.leg.tint) {
@@ -119,6 +255,11 @@ export class SurfaceScene extends Phaser.Scene {
       string,
       Phaser.Input.Keyboard.Key
     >;
+    // Latch every E press (ignoring auto-repeat) so even a very quick tap is never missed.
+    this.ePressQueued = false;
+    this.keys.E.on(Phaser.Input.Keyboard.Events.DOWN, (_key: Phaser.Input.Keyboard.Key, event: KeyboardEvent) => {
+      if (!event?.repeat) this.ePressQueued = true;
+    });
 
     // Arriving by jump-cut: hold the travel card briefly, then hand control back.
     if (s.mode === "travel") {
@@ -138,34 +279,256 @@ export class SurfaceScene extends Phaser.Scene {
 
   private buildGround() {
     // "ground_mirror" (seamless mirrored tile) is generated once by BootScene.
-    this.add.tileSprite(0, 0, this.leg.world.width, this.leg.world.height, "ground_mirror").setOrigin(0).setDepth(-10);
+    const { world, spawn, target, softSoil, rockSeed } = this.leg;
+    // Fix D1 — break the "carpet". The mirrored 128 px tile's diamond motif is what repeats, so
+    // it is laid at half strength over its own average colour (keeps the grain, loses the motif),
+    // then much larger features go on top.
+    this.add.rectangle(0, 0, world.width, world.height, 0xbf4a2f).setOrigin(0).setDepth(-10.5);
+    this.add.tileSprite(0, 0, world.width, world.height, "ground_mirror").setOrigin(0).setDepth(-10).setAlpha(0.5);
+    const rng = mulberry32(rockSeed * 31 + 7);
+    const area = world.width * world.height;
+    const rand = (a: number, b: number) => a + rng() * (b - a);
+
+    // 1) Broad tonal patches (darker basalt-dust and paler sand), far bigger than the tile.
+    for (let i = 0; i < Math.round(area / 150000); i++) {
+      const dark = i % 2 === 0;
+      const size = rand(260, 900);
+      this.add
+        .image(rand(0, world.width), rand(0, world.height), "soft_blob")
+        .setDisplaySize(size, size * rand(0.5, 0.9))
+        .setRotation(rand(-0.4, 0.4))
+        .setTint(dark ? 0x5a2010 : 0xf0a070)
+        .setAlpha(dark ? rand(0.16, 0.3) : rand(0.12, 0.22))
+        .setDepth(-9.5);
+    }
+
+    // 2) Flat ground details (team art): craters and stone clusters. Kept off the spawn point,
+    //    the rover being searched for, and the soft-soil core.
+    const keepClear = (x: number, y: number, r: number) =>
+      Phaser.Math.Distance.Between(x, y, spawn.x, spawn.y) < 170 + r ||
+      Phaser.Math.Distance.Between(x, y, target.x, target.y) < 230 + r ||
+      (!!softSoil && Phaser.Math.Distance.Between(x, y, softSoil.x, softSoil.y) < softSoil.coreRadius + r) ||
+      (!!this.leg.checkpoint && Phaser.Math.Distance.Between(x, y, this.leg.checkpoint.x, this.leg.checkpoint.y) < 150 + r) ||
+      this.craterZones.some((c) => Phaser.Math.Distance.Between(x, y, c.x, c.y) < c.r + r + 40);
+    // Distance from the straight spawn→target route, so the big crater sits off the main path.
+    const offRoute = (x: number, y: number) => {
+      const dx = target.x - spawn.x;
+      const dy = target.y - spawn.y;
+      const t = Phaser.Math.Clamp(((x - spawn.x) * dx + (y - spawn.y) * dy) / (dx * dx + dy * dy), 0, 1);
+      return Phaser.Math.Distance.Between(x, y, spawn.x + dx * t, spawn.y + dy * t);
+    };
+    const craters: [string, number, number, number][] = [
+      // key, how many, min scale, max scale
+      ["large_crater", 1, 0.6, 0.8],
+      ["medium_crater", Math.max(2, Math.round(area / 1800000)), 0.55, 0.9],
+      ["small_crater", Math.round(area / 380000), 0.45, 0.85],
+    ];
+    for (const [key, count, s0, s1] of craters) {
+      let placed = 0;
+      for (let tries = 0; placed < count && tries < 300; tries++) {
+        const scale = rand(s0, s1);
+        const img = this.textures.get(key).getSourceImage() as HTMLImageElement;
+        const r = (img.width * scale) / 2;
+        const x = rand(r + 40, world.width - r - 40);
+        const y = rand(r + 40, world.height - r - 40);
+        if (keepClear(x, y, r)) continue;
+        if (key === "large_crater" && offRoute(x, y) < r + 220) continue;
+        this.add.image(x, y, key).setScale(scale).setFlipX(rng() > 0.5).setDepth(-8);
+        this.craterZones.push({ x, y, r });
+        placed++;
+      }
+    }
+    const stones = ["stone_cluster_1", "stone_cluster_2", "stone_cluster_3", "stone_cluster_4"];
+    for (let i = 0, placed = 0; placed < Math.round(area / 42000) && i < 3000; i++) {
+      const x = rand(30, world.width - 30);
+      const y = rand(30, world.height - 30);
+      if (keepClear(x, y, 20)) continue;
+      this.add
+        .image(x, y, stones[Math.floor(rng() * stones.length)])
+        .setScale(rand(0.7, 1.35))
+        .setFlipX(rng() > 0.5)
+        .setAlpha(rand(0.75, 1))
+        .setDepth(-8);
+      placed++;
+    }
+  }
+
+  /**
+   * Jump point (Phase H): a relay beacon a short drive from the rover you've just visited. It's
+   * dim until the leg is complete, then lights up — a pulsing landing ring and a beam of light —
+   * and the guidance arrow points to it. Inside the ring the player may choose to jump.
+   */
+  private buildJumpPoint(cp: { x: number; y: number }) {
+    if (!this.textures.exists("jump_beam")) {
+      const tex = this.textures.createCanvas("jump_beam", 48, 320)!;
+      const ctx = tex.getContext();
+      const v = ctx.createLinearGradient(0, 0, 0, 320);
+      v.addColorStop(0, "rgba(104,215,233,0)");
+      v.addColorStop(0.7, "rgba(104,215,233,0.55)");
+      v.addColorStop(1, "rgba(180,240,250,0.9)");
+      ctx.fillStyle = v;
+      ctx.fillRect(0, 0, 48, 320);
+      // soften the sides
+      const h = ctx.createLinearGradient(0, 0, 48, 0);
+      h.addColorStop(0, "rgba(0,0,0,1)");
+      h.addColorStop(0.35, "rgba(0,0,0,0)");
+      h.addColorStop(0.65, "rgba(0,0,0,0)");
+      h.addColorStop(1, "rgba(0,0,0,1)");
+      ctx.globalCompositeOperation = "destination-out";
+      ctx.fillStyle = h;
+      ctx.fillRect(0, 0, 48, 320);
+      tex.refresh();
+    }
+    const glow = this.add.image(cp.x, cp.y, "soft_blob").setDisplaySize(260, 96).setTint(0x68d7e9).setAlpha(0.12).setDepth(-3);
+    const ring = this.add.ellipse(cp.x, cp.y, 220, 80).setStrokeStyle(3, 0x68d7e9, 1).setAlpha(0.3).setDepth(-3);
+    const inner = this.add.ellipse(cp.x, cp.y, 130, 46).setStrokeStyle(2, 0x68d7e9, 0.8).setAlpha(0.25).setDepth(-3);
+    const mast = this.add.graphics().setDepth(cp.y - 1);
+    mast.fillStyle(0x3a3f48, 1).fillRect(cp.x + 92, cp.y - 70, 4, 70); // relay mast at the ring's edge
+    mast.fillStyle(0x8b939e, 1).fillRect(cp.x + 86, cp.y - 74, 16, 6);
+    const lamp = this.add.circle(cp.x + 94, cp.y - 78, 4, 0x68d7e9).setDepth(cp.y).setAlpha(0.4);
+    const beam = this.add.image(cp.x, cp.y + 6, "jump_beam").setOrigin(0.5, 1).setDisplaySize(90, 300).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(cp.y + 1);
+    const label = this.add
+      .text(cp.x, cp.y - 112, "JUMP POINT", { fontFamily: "monospace", fontSize: "15px", color: "#9fe8f4", stroke: "#06101d", strokeThickness: 4 })
+      .setOrigin(0.5)
+      .setLetterSpacing(3)
+      .setAlpha(0)
+      .setDepth(cp.y + 2);
+    this.jumpPoint = { glow, ring, inner, lamp, beam, label, active: false };
+  }
+
+  private setJumpPointActive(on: boolean) {
+    const j = this.jumpPoint;
+    if (!j || j.active === on) return;
+    j.active = on;
+    this.tweens.killTweensOf([j.ring, j.inner, j.beam, j.lamp, j.glow, j.label]);
+    if (!on) return;
+    // Light up: pulsing rings, a soft beam, a blinking relay lamp.
+    this.tweens.add({ targets: [j.ring, j.inner], alpha: 1, duration: 600 });
+    this.tweens.add({ targets: j.ring, scaleX: 1.08, scaleY: 1.08, yoyo: true, repeat: -1, duration: 900, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: j.glow, alpha: 0.45, duration: 600 });
+    this.tweens.add({ targets: j.beam, alpha: { from: 0.35, to: 0.75 }, yoyo: true, repeat: -1, duration: 1100, ease: "Sine.easeInOut" });
+    this.tweens.add({ targets: j.lamp, alpha: { from: 0.3, to: 1 }, yoyo: true, repeat: -1, duration: 450 });
+    this.tweens.add({ targets: j.label, alpha: 1, duration: 600 });
+  }
+
+  /** Keeps the rover's shadow under its wheels, sized for the current facing (fix D2). */
+  private syncShadow() {
+    if (!this.player || !this.shadow) return;
+    const side = this.facing === "E" || this.facing === "W";
+    const end = this.facing === "N" || this.facing === "S";
+    const [w, h] = side ? [124, 30] : end ? [86, 34] : [106, 34];
+    this.shadow.setPosition(this.player.x, this.player.y - 3).setDisplaySize(w, h).setDepth(this.player.depth - 0.5);
+  }
+
+  /** Stamps a pair of fading tread marks behind the rover as it drives (fix D3). */
+  private updateTracks(dt: number, inSoil: boolean) {
+    this.trackClock += dt;
+    const LIFE = 9; // seconds a track stays visible
+    // fade + recycle
+    for (let i = this.tracks.length - 1; i >= 0; i--) {
+      const t = this.tracks[i];
+      const age = this.trackClock - t.born;
+      if (age >= LIFE) {
+        t.img.setVisible(false);
+        this.trackPool.push(t.img);
+        this.tracks.splice(i, 1);
+      } else {
+        t.img.setAlpha(t.alpha * (1 - age / LIFE));
+      }
+    }
+    const x = this.player.x;
+    const y = this.player.y - 3;
+    if (!this.lastTrack) {
+      this.lastTrack = { x, y };
+      return;
+    }
+    const dx = x - this.lastTrack.x;
+    const dy = y - this.lastTrack.y;
+    if (dx * dx + dy * dy < 9 * 9) return;
+    const a = Math.atan2(dy, dx);
+    // Left/right wheel lines: wide apart when driving up/down the screen, close together (the
+    // view is foreshortened) when driving across it.
+    const ox = -Math.sin(a) * 24;
+    const oy = Math.cos(a) * 8;
+    const alpha = inSoil ? 0.7 : 0.42; // soft soil takes deeper, darker ruts
+    for (const sgn of [-1, 1]) {
+      const img = this.trackPool.pop() ?? this.add.image(0, 0, "track_dash").setDepth(-4);
+      img.setPosition(x + ox * sgn, y + oy * sgn).setRotation(a).setVisible(true).setAlpha(alpha);
+      this.tracks.push({ img, born: this.trackClock, alpha });
+    }
+    this.lastTrack = { x, y };
   }
 
   private buildSoftSoil() {
-    // Visually distinct before entry (design.md §2.2): pale, loose, sandy — not mud (rules §1).
+    // Fix E2 — Martian soft soil, not beach sand: a wind-drift patch of fine ochre dust covered in
+    // parallel aeolian ripples, with a darker, churned core where wheels sink. Still visually
+    // distinct before entry (design.md §2.2) and never mud-like (rules §1).
     const soil = this.leg.softSoil!;
     const rng = mulberry32(7);
-    const g = this.add.graphics().setDepth(-5);
-    for (let i = 0; i < 26; i++) {
+    const R = soil.outerRadius;
+
+    // 1) Drift body: overlapping soft blobs, slightly more orange and paler than the plain.
+    for (let i = 0; i < 16; i++) {
       const a = rng() * Math.PI * 2;
-      const r = rng() * (soil.outerRadius - 120);
-      g.fillStyle(0xe0a878, 0.13).fillCircle(soil.x + Math.cos(a) * r, soil.y + Math.sin(a) * r, 110 + rng() * 60);
+      const r = rng() * (R - 160);
+      const size = 260 + rng() * 260;
+      this.add
+        .image(soil.x + Math.cos(a) * r, soil.y + Math.sin(a) * r, "soft_blob")
+        .setDisplaySize(size, size * (0.6 + rng() * 0.3))
+        .setTint(rng() > 0.4 ? 0xdc8a52 : 0xe6a26a)
+        .setAlpha(0.32)
+        .setDepth(-6);
     }
-    for (let i = 0; i < 18; i++) {
+    // Darker, churned core (where the rover bogs down).
+    for (let i = 0; i < 6; i++) {
       const a = rng() * Math.PI * 2;
-      const r = rng() * (soil.coreRadius - 90);
-      g.fillStyle(0xf0c49a, 0.14).fillCircle(soil.x + Math.cos(a) * r, soil.y + Math.sin(a) * r, 80 + rng() * 50);
+      const r = rng() * (soil.coreRadius * 0.45);
+      const size = soil.coreRadius * (1 + rng() * 0.6);
+      this.add
+        .image(soil.x + Math.cos(a) * r, soil.y + Math.sin(a) * r, "soft_blob")
+        .setDisplaySize(size, size * 0.75)
+        .setTint(0x8f4426)
+        .setAlpha(0.22)
+        .setDepth(-6);
     }
-    for (let i = 0; i < 420; i++) {
-      const a = rng() * Math.PI * 2;
-      const r = Math.sqrt(rng()) * soil.outerRadius;
-      g.fillStyle(rng() > 0.35 ? 0xf3cfa4 : 0x8a4a2c, 0.55).fillRect(
-        Math.round(soil.x + Math.cos(a) * r),
-        Math.round(soil.y + Math.sin(a) * r),
-        3,
-        3,
-      );
+
+    // 2) Aeolian ripples: wavy crests every ~15 px across the patch, a dark shadow line with a
+    //    sunlit edge beside it, fading out toward the patch edge (ragged, not a perfect circle).
+    //    ~10k segments, so they're drawn ONCE into a texture (a live Graphics would redraw them
+    //    every frame). Local coordinates: the patch centre is (R, R) in a 2R × 2R texture.
+    const key = `soil_ripples_${this.leg.rover}`;
+    if (!this.textures.exists(key)) {
+      const g = this.make.graphics({ x: 0, y: 0 }, false);
+      const dir = -0.35; // ripple crests run at a slight angle (wind from the west-north-west)
+      const ux = Math.cos(dir);
+      const uy = Math.sin(dir);
+      const nx = -uy;
+      const ny = ux;
+      const edge = (x: number, y: number) => {
+        const d = Phaser.Math.Distance.Between(x, y, R, R);
+        const wob = 0.85 + 0.15 * Math.sin(Math.atan2(y - R, x - R) * 5 + 1.7);
+        return Phaser.Math.Clamp(1 - Math.pow(d / (R * wob), 2.2), 0, 1);
+      };
+      for (let k = -R; k <= R; k += 15) {
+        const phase = rng() * 6.28;
+        let prev: { x: number; y: number } | null = null;
+        for (let s = -R; s <= R; s += 8) {
+          const off = Math.sin(s * 0.035 + phase) * 4 + Math.sin(s * 0.011 + phase * 2) * 6;
+          const x = R + ux * s + nx * (k + off);
+          const y = R + uy * s + ny * (k + off);
+          const f = edge(x, y);
+          if (prev && f > 0.02) {
+            const core = Phaser.Math.Distance.Between(x, y, R, R) < soil.coreRadius;
+            g.lineStyle(2, core ? 0x5e2814 : 0x7a3a1e, 0.42 * f).lineBetween(prev.x, prev.y, x, y);
+            g.lineStyle(1.5, 0xf0b07a, 0.3 * f).lineBetween(prev.x - nx * 3, prev.y - ny * 3, x - nx * 3, y - ny * 3);
+          }
+          prev = { x, y };
+        }
+      }
+      g.generateTexture(key, R * 2, R * 2);
+      g.destroy();
     }
+    this.add.image(soil.x, soil.y, key).setDepth(-5);
   }
 
   private buildRocks() {
@@ -182,6 +545,9 @@ export class SurfaceScene extends Phaser.Scene {
       const y = 80 + rng() * (world.height - 160);
       if (Phaser.Math.Distance.Between(x, y, spawn.x, spawn.y) < 360) continue;
       if (Phaser.Math.Distance.Between(x, y, clearCenter.x, clearCenter.y) < clearRadius) continue;
+      if (this.craterZones.some((c) => Phaser.Math.Distance.Between(x, y, c.x, c.y) < c.r + 50)) continue;
+      const cp = this.leg.checkpoint;
+      if (cp && Phaser.Math.Distance.Between(x, y, cp.x, cp.y) < 260) continue; // keep the jump point open
       const kind = kinds[Math.floor(rng() * kinds.length)];
       const scale = 0.45 + rng() * 0.35;
       const img = this.add.image(x, y, kind).setScale(scale).setOrigin(0.5, 0.8).setDepth(y);
@@ -195,53 +561,129 @@ export class SurfaceScene extends Phaser.Scene {
   }
 
   private buildWeatherLayer() {
-    if (!this.textures.exists("dust_px")) {
-      const g = this.make.graphics({ x: 0, y: 0 }, false);
-      g.fillStyle(0xf2c48e, 1).fillRect(0, 0, 3, 3);
-      g.generateTexture("dust_px", 3, 3);
-      g.destroy();
+    makeWeatherTextures(this);
+    const W = GAME_WIDTH;
+    const H = GAME_HEIGHT;
+    const rng = mulberry32(this.leg.rockSeed + 99);
+    this.weatherNow = { ...WEATHER.clear };
+    this.weatherTarget = { ...WEATHER.clear };
+    this.weatherClock = 0;
+
+    // Rolling dust clouds, two parallax layers (screen-space), drawn under the haze.
+    this.dustClouds = [];
+    for (let i = 0; i < 12; i++) {
+      const layer = i < 6 ? 0 : 1; // 0 = far/slow/broad, 1 = near/fast/denser
+      const w = layer ? 700 + rng() * 600 : 900 + rng() * 700;
+      const img = this.add
+        .image(rng() * (W + w) - w / 2, rng() * H, "soft_blob")
+        .setDisplaySize(w, w * (0.35 + rng() * 0.25))
+        .setTint(rng() > 0.5 ? 0xb8692f : 0xd49456)
+        .setAlpha(0)
+        .setScrollFactor(0)
+        .setDepth(layer ? 9150 : 9050);
+      this.dustClouds.push({ img, speed: layer ? 1.35 + rng() * 0.5 : 0.6 + rng() * 0.3, base: layer ? 1 : 0.7, phase: rng() * 6.28, layer });
     }
-    this.haze = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0xc8803c, 0).setOrigin(0).setScrollFactor(0).setDepth(9100);
-    this.dust = this.add
+    this.dim = this.add.rectangle(0, 0, W, H, 0x2a1206, 0).setOrigin(0).setScrollFactor(0).setDepth(9080);
+    this.haze = this.add.rectangle(0, 0, W, H, 0xc8803c, 0).setOrigin(0).setScrollFactor(0).setDepth(9100);
+    this.vignette = this.add.image(0, 0, "storm_vignette").setOrigin(0).setDisplaySize(W, H).setAlpha(0).setScrollFactor(0).setDepth(9300);
+
+    // Flowing haze: two seamless sheets of streaky airborne dust drifting across the screen with
+    // the wind — a broad, slow far layer and a finer, faster near one (parallax). No particles.
+    this.hazeSheets = [
+      { scale: 2.4, depth: 9060, tint: 0xc27a3e, speed: 0.55, base: 0.8, phase: 0 },
+      { scale: 1.5, depth: 9160, tint: 0xe0a466, speed: 1.15, base: 0.6, phase: 2.1 },
+    ].map((l) => ({
+      sprite: this.add
+        .tileSprite(0, 0, W, H, "haze_sheet")
+        .setOrigin(0)
+        .setTileScale(l.scale, l.scale * 1.15)
+        .setTint(l.tint)
+        .setAlpha(0)
+        .setScrollFactor(0)
+        .setDepth(l.depth),
+      speed: l.speed,
+      base: l.base,
+      phase: l.phase,
+      flow: 0,
+    }));
+    // Stuck in soft soil: spinning wheels churn up bright, pale soil (as Spirit's did at Troy).
+    this.churn = this.add
       .particles(0, 0, "dust_px", {
-        x: { min: -40, max: 0 },
-        y: { min: 0, max: GAME_HEIGHT },
-        speedX: { min: 40, max: 110 },
-        speedY: { min: -15, max: 25 },
-        lifespan: 6000,
-        alpha: { start: 0.7, end: 0 },
-        scale: { min: 0.6, max: 1.6 },
+        speed: { min: 40, max: 130 },
+        angle: { min: 200, max: 340 },
+        gravityY: 260,
+        lifespan: 700,
+        alpha: { start: 0.95, end: 0 },
+        scale: { min: 0.6, max: 1.3 },
+        tint: [0xf3e6b8, 0xe9d49a, 0xfaf0d2, 0xc98a5a],
         frequency: -1,
       })
-      .setScrollFactor(0)
-      .setDepth(9200);
+      .setDepth(10_000);
   }
 
-  /** Keep visuals in sync with the solar condition that drives charging (design.md §2.5). */
+  /** Pick the target look for the solar condition that drives charging (design.md §2.5). */
   private applyWeather(s: RunState) {
     const severe = s.severeStorm;
     const passing = severe && s.toolEngaged ? this.survivalSeconds / TUNING.survivalSecondsToPass : 0;
-    const key = `${s.solarCondition}|${severe}|${Math.round(passing * 10)}`;
-    if (key === this.weatherKey) return;
-    this.weatherKey = key;
-
-    const w = WEATHER[s.solarCondition];
-    let haze = w.haze;
-    let perSecond = w.dustPerSecond;
-    let speed = w.speed;
     if (severe) {
-      // The storm hits after Continue: thicker, faster — easing off as survival mode rides it out.
-      haze = Phaser.Math.Linear(0.48, 0.3, passing);
-      perSecond = Phaser.Math.Linear(260, 140, passing);
-      speed = [380, 700];
-    }
-    this.haze.setFillStyle(0xc8803c, haze);
-    if (perSecond <= 0) {
-      this.dust.stop();
+      // The storm hits after Continue — and eases off as survival mode rides it out.
+      const a = WEATHER.severe;
+      const b = WEATHER.dust_storm;
+      const t = passing * 0.6;
+      this.weatherTarget = Object.fromEntries(
+        (Object.keys(a) as (keyof WeatherLook)[]).map((k) => [k, Phaser.Math.Linear(a[k], b[k], t)]),
+      ) as unknown as WeatherLook;
     } else {
-      this.dust.setFrequency(1000 / perSecond);
-      this.dust.speedX = { min: speed[0], max: speed[1] } as unknown as number;
-      if (!this.dust.emitting) this.dust.start();
+      this.weatherTarget = WEATHER[s.solarCondition];
+    }
+  }
+
+  /** Ease toward the target look and animate clouds, gusts and particles (runs every frame). */
+  private tickWeather(dtMs: number) {
+    const dt = Math.min(dtMs, 50) / 1000;
+    this.weatherClock += dt;
+    const now = this.weatherNow;
+    const target = this.weatherTarget;
+    const ease = 1 - Math.exp(-dt / 1.4); // ~1.4 s time constant: storms build, they don't snap
+    for (const k of Object.keys(now) as (keyof WeatherLook)[]) now[k] += (target[k] - now[k]) * ease;
+
+    // Gusts: overlapping slow waves plus the odd sharp burst; 1 = average air.
+    const t = this.weatherClock;
+    const wave = 0.5 * Math.sin(t * 0.7) + 0.3 * Math.sin(t * 1.9 + 1.3) + 0.2 * Math.sin(t * 4.3 + 0.4);
+    const burst = Math.max(0, Math.sin(t * 0.37 + 2) - 0.82) * 4; // brief spikes every ~17 s
+    const gust = 1 + now.gust * (0.35 * wave + burst);
+
+    const W = GAME_WIDTH;
+    const H = GAME_HEIGHT;
+    this.haze.setFillStyle(0xc8803c, Phaser.Math.Clamp(now.haze * (0.85 + 0.25 * gust), 0, 0.6));
+    this.dim.setFillStyle(0x2a1206, now.dim);
+    this.vignette.setAlpha(Phaser.Math.Clamp(now.vignette * (0.9 + 0.15 * gust), 0, 1));
+    for (const c of this.dustClouds) {
+      const img = c.img;
+      img.x += now.wind * c.speed * gust * dt;
+      img.y += Math.sin(t * 0.8 + c.phase) * 14 * dt; // slow billow up and down
+      if (img.x - img.displayWidth / 2 > W) {
+        img.x = -img.displayWidth / 2;
+        img.y = Math.random() * H;
+      }
+      const billow = 0.7 + 0.3 * Math.sin(t * 0.55 + c.phase * 2);
+      img.setAlpha(Phaser.Math.Clamp(now.clouds * c.base * billow * (0.8 + 0.3 * gust), 0, 0.9));
+    }
+
+    // Haze sheets flow left → right with the wind (gusts speed them up and thicken them), plus
+    // a little parallax with the camera so the air feels like it's between you and the ground.
+    const cam = this.cameras.main;
+    for (const s of this.hazeSheets) {
+      s.flow += now.wind * s.speed * gust * dt;
+      const sprite = s.sprite;
+      sprite.tilePositionX = (-s.flow + cam.scrollX * 0.35 * s.speed) / sprite.tileScaleX;
+      sprite.tilePositionY = (cam.scrollY * 0.35 * s.speed + Math.sin(t * 0.3 + s.phase) * 18) / sprite.tileScaleY;
+      const breathe = 0.85 + 0.15 * Math.sin(t * 0.45 + s.phase);
+      sprite.setAlpha(Phaser.Math.Clamp(now.sheets * s.base * breathe * (0.85 + 0.25 * gust), 0, 1));
+    }
+    // Severe gusts nudge the camera a little.
+    if (now.gust > 0.7 && burst > 0.25 && !this.cameras.main.shakeEffect.isRunning) {
+      this.cameras.main.shake(400, 0.0018);
     }
   }
 
@@ -253,10 +695,12 @@ export class SurfaceScene extends Phaser.Scene {
 
     this.updateCinematicCamera(s);
     this.applyWeather(s);
+    this.tickWeather(deltaMs);
 
     if (paused) {
       this.player.setVelocity(0, 0);
       this.player.anims.stop(); // wheels rest while the hub/dialogue/pause is open
+      this.ePressQueued = false; // an E pressed in a menu never acts on the world afterwards
       if (!this.wasPaused) this.physics.world.pause();
       this.wasPaused = true;
       this.edgeArrow.clear();
@@ -338,13 +782,20 @@ export class SurfaceScene extends Phaser.Scene {
     }
     this.player.setVelocity(vx, vy);
     const moving = Math.abs(vx) + Math.abs(vy) > 1;
-    if (throttle && !severe) this.setFacing(ix, iy);
+    // Stuck means stuck: a rover that can't drive (soft soil, out of power, storm) can't turn
+    // either — the wheels just spin in place (fix E3).
+    if (throttle && !severe && speedFactor > 0) this.setFacing(ix, iy);
     this.player.setDepth(py);
+    this.updateTracks(dt, inSoil);
     this.toolRing.setPosition(px, py - 4).setVisible(s.toolEngaged).setDepth(py - 1);
 
     // ---- power ----
     const spinning = throttle && !severe; // wheels spin (and cost power) even when stuck
     this.spinWheels(spinning && !s.outOfPower);
+    // Stuck and spinning: the wheels dig in and throw up bright, pale subsurface soil (fix E2).
+    if (spinning && !s.outOfPower && traction === "stuck") {
+      for (const side of [-1, 1]) this.churn.emitParticleAt(px + side * 22 + Phaser.Math.Between(-6, 6), py - 4, 1);
+    }
     this.stationarySeconds = moving || spinning ? 0 : this.stationarySeconds + dt;
     const power = stepPower({
       battery: s.batteryChargePercent,
@@ -360,6 +811,10 @@ export class SurfaceScene extends Phaser.Scene {
     // ---- encounter progression ----
     const targetDist = Phaser.Math.Distance.Between(px, py, leg.target.x, leg.target.y);
     const canScan = step === leg.scanStep && !s.discoveredRovers.includes(leg.rover) && targetDist < TUNING.scanRange;
+    // Phase H: with the leg complete, reaching the jump point lets the player CHOOSE to jump.
+    const cp = leg.checkpoint;
+    const canJump = step === "complete" && !!cp && !!leg.next && Phaser.Math.Distance.Between(px, py, cp.x, cp.y) < JUMP_RADIUS;
+    this.setJumpPointActive(step === "complete");
     let objective = s.objective;
     let toast = s.toast;
     let toolEngaged = s.toolEngaged;
@@ -368,7 +823,17 @@ export class SurfaceScene extends Phaser.Scene {
       objective = { ...objective, text: "Stuck in soft soil! Scan the rover ahead [E]" };
     }
 
-    if (Phaser.Input.Keyboard.JustDown(k.E)) {
+    // E is latched from its key-down EVENT (see create) and consumed here exactly once. Polling
+    // JustDown() missed presses: it's cleared by a second call in the same frame, and by key-up —
+    // so a tap shorter than one frame (easy on a slow laptop) never registered.
+    const ePressed = this.ePressQueued;
+    this.ePressQueued = false;
+    if (ePressed && canJump) {
+      runStore.set({ batteryChargePercent: power.battery, canJump: false });
+      actions.travelToNextLeg();
+      return;
+    }
+    if (ePressed) {
       if (canScan) {
         runStore.set({ encounterStep: step, tractionStatus: traction, batteryChargePercent: power.battery });
         actions.beginDiscovery(leg.rover);
@@ -408,6 +873,7 @@ export class SurfaceScene extends Phaser.Scene {
     // ---- guidance ----
     let target: { x: number; y: number } | null = null;
     if (step === "approach" || step === "hazard") target = leg.target;
+    else if (step === "complete" && cp && leg.next) target = cp; // head for the jump point
     else if (step === "tool_unlocked" && leg.softSoil) {
       const a = Math.atan2(py - leg.softSoil.y, px - leg.softSoil.x);
       const r = leg.softSoil.outerRadius + 60;
@@ -442,6 +908,7 @@ export class SurfaceScene extends Phaser.Scene {
       tractionStatus: traction,
       encounterStep: step,
       canScan,
+      canJump,
       objective,
       warning,
       toast,
@@ -498,11 +965,17 @@ export class SurfaceScene extends Phaser.Scene {
     const cx = GAME_WIDTH / 2;
     const cy = GAME_HEIGHT / 2;
     const a = Math.atan2(target.y - (view.y + view.height / 2), target.x - (view.x + view.width / 2));
-    const pad = 70;
-    const t = Math.min((cx - pad) / Math.abs(Math.cos(a) || 1e-6), (cy - pad) / Math.abs(Math.sin(a) || 1e-6));
+    const pad = 40;
+    let t = Math.min((cx - pad) / Math.abs(Math.cos(a) || 1e-6), (cy - pad) / Math.abs(Math.sin(a) || 1e-6));
+    // Never draw under a HUD panel (objective, battery, Hub button, prompts…): slide the arrow
+    // inward along its own direction until it is clear, so it always stays visible (fix D4).
+    const blocked = hudRects();
+    const size = 16;
+    const m = size + 8; // arrow half-size plus a little breathing room
+    const hit = (px: number, py: number) => blocked.some((r) => px > r.x - m && px < r.x + r.w + m && py > r.y - m && py < r.y + r.h + m);
+    while (t > 60 && hit(cx + Math.cos(a) * t, cy + Math.sin(a) * t)) t -= 6;
     const x = cx + Math.cos(a) * t;
     const y = cy + Math.sin(a) * t;
-    const size = 16;
     g.fillStyle(0xf1aa61, 0.95);
     g.lineStyle(2, 0x0c1828, 1);
     const p = [0, 2.5, -2.5].map((o) => [x + Math.cos(a + o) * size, y + Math.sin(a + o) * size]);

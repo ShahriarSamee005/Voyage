@@ -37,7 +37,7 @@ export function Overlay() {
       {stage === "rocket" && <RocketHud />}
       <CinematicLayer />
       {toast && !hubOpen && (
-        <div className="absolute left-1/2 top-28 -translate-x-1/2 rounded-full border border-ui-cyan/60 bg-ui-background/90 px-5 py-2 font-mono text-[15px] tracking-wide text-ui-cyan">
+        <div data-hud-avoid className="absolute left-1/2 top-28 -translate-x-1/2 rounded-full border border-ui-cyan/60 bg-ui-background/90 px-5 py-2 font-mono text-[15px] tracking-wide text-ui-cyan">
           {toast}
         </div>
       )}

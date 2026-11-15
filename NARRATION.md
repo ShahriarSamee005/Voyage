@@ -5,7 +5,7 @@ Text is **verbatim from PRD §4.8** — paste exactly, including punctuation (th
 **How to save:** one MP3 per line → `voyage/public/assets/audio/voice/<id>.mp3` (e.g. `landing-3.mp3`).
 Then run `npm run tag-voice` (adds the required AI acknowledgment to each MP3's metadata) and tell Claude — it registers them in `src/game/audio/voiceClips.ts` and checks the sync.
 
-All 17 lines are recorded, tagged and registered in `src/game/audio/voiceClips.ts` (Nov 14 2026).
+All 17 cinematic lines are recorded, tagged and registered in `src/game/audio/voiceClips.ts` (Nov 14 2026). Phase I added 12 more on Nov 15 — 9 discovery remarks (Mina) and 3 space-travel lines (Martin); see `VOICE_PHASE_I.md`. Total: 29.
 
 ## Mission Control — voice "Martin – Calm, Clear Narrator"
 

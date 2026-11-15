@@ -3,76 +3,79 @@
 import { useEffect, useRef } from "react";
 import { actions } from "@/game/state/runStore";
 
-// REF-DEST (design.md §5.2): rover-terminal destination select. Mars playable; Moon shown locked
-// as "next mission" (nice-to-have card, no Moon gameplay). Copy describes rover recovery only —
-// no colony, mining or habitability objective.
+// Rover terminal / destination select (team layout, Nov 15), placed per "terminal layout
+// reference.png": the team's terminal-room art, the Destination Select panel above the console,
+// Back at the bottom left, and Confirm / Launch in the panel's empty right-hand slot.
+// Mars is playable; the Moon card is shown locked as a future mission (no Moon gameplay).
+//
+// The panel art has a generic mission blurb baked in ("~30–60 min", "past habitability",
+// "collect samples") that doesn't match this game, so that one block is covered with the panel's
+// own colour and the real mission text (design.md §5.2: rover recovery only; a run is ~10 min).
+
+const ART = "/assets/dashboards/web";
+// Panel art is 1536×901 (trimmed). Positions below are fractions of that image.
+const PANEL = { left: 160, top: 6, width: 960 };
+const PANEL_H = Math.round((PANEL.width * 901) / 1536);
 
 export function DestinationSelect() {
   const launchRef = useRef<HTMLButtonElement>(null);
   useEffect(() => launchRef.current?.focus({ preventScroll: true }), []);
 
   return (
-    <div className="pointer-events-auto relative flex h-full w-full items-center justify-center bg-[radial-gradient(ellipse_at_center,#10263a_0%,#0c1828_60%,#070d17_100%)]">
-      <div className="w-[1120px] rounded-xl border-2 border-ui-border bg-ui-background/95 p-8 shadow-2xl">
-        <header className="mb-6 flex items-center justify-between">
-          <h2 className="font-display text-[26px] font-bold tracking-[0.25em] text-ui-text">DESTINATION SELECT</h2>
-          <span className="font-mono text-[13px] tracking-widest text-ui-muted">ROVER TERMINAL · SELECT A PLANET</span>
-        </header>
+    <div className="pointer-events-auto relative h-full w-full overflow-hidden bg-[#1b1630]">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img src={`${ART}/terminal_bg.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <h2 className="sr-only">Rover terminal — destination select</h2>
 
-        <div className="flex gap-6">
-          <div className="flex gap-4">
-            <div className="flex w-[230px] flex-col items-center rounded-lg border-2 border-ui-cyan bg-ui-cyan/10 p-5" aria-current="true">
-              <div className="h-[130px] w-[130px] rounded-full bg-[radial-gradient(circle_at_35%_35%,#e08a4c,#b65d3a_55%,#5a2a1e)] shadow-[0_0_30px_rgba(214,121,70,0.35)]" />
-              <div className="mt-4 font-display text-[22px] font-bold tracking-widest">MARS</div>
-              <span className="mt-2 rounded border border-ui-cyan px-3 py-0.5 font-mono text-[12px] tracking-widest text-ui-cyan">PLAYABLE</span>
-            </div>
-            <div className="flex w-[230px] flex-col items-center rounded-lg border-2 border-ui-border/50 p-5 opacity-60" aria-disabled="true">
-              <div className="flex h-[130px] w-[130px] items-center justify-center rounded-full bg-[radial-gradient(circle_at_35%_35%,#bfc3c7,#80868c_60%,#3c4045)] text-[40px]">
-                🔒
-              </div>
-              <div className="mt-4 font-display text-[22px] font-bold tracking-widest">MOON</div>
-              <span className="mt-2 rounded border border-ui-border px-3 py-0.5 font-mono text-[12px] tracking-widest text-ui-muted">LOCKED · NEXT MISSION</span>
-            </div>
-          </div>
+      <div className="absolute" style={{ left: PANEL.left, top: PANEL.top, width: PANEL.width, height: PANEL_H }}>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={`${ART}/terminal_panel.webp`}
+          alt="Destinations: Mars, playable and selected. The Moon, locked, a future mission."
+          className="absolute inset-0 h-full w-full"
+        />
 
-          <div className="flex flex-1 flex-col rounded-lg border border-ui-border/70 bg-ui-panel p-6">
-            <div className="font-mono text-[13px] tracking-widest text-ui-amber">CURRENT MISSION: MARS</div>
-            <p className="mt-3 text-[17px] leading-relaxed">
-              Find three explorers left behind — <strong>Sojourner</strong>, <strong>Spirit</strong> and{" "}
-              <strong>Opportunity</strong>. Inspect each rover, learn how its mission ended, and bring their stories and
-              discoveries back to Earth.
-            </p>
-            <dl className="mt-5 grid grid-cols-[150px_1fr] gap-y-2 font-mono text-[14px]">
-              <dt className="text-ui-muted">ROVERS TO FIND</dt>
-              <dd>3</dd>
-              <dt className="text-ui-muted">HAZARDS</dt>
-              <dd>Low power · soft soil · dust storm</dd>
-              <dt className="text-ui-muted">PLAY TIME</dt>
-              <dd>About 10 minutes</dd>
-            </dl>
-            <p className="mt-5 text-[13px] text-ui-muted">
-              Your rover, lander and Mission Control are fictional. The rovers you find — and their stories and photos — are real NASA history.
-            </p>
-            <div className="mt-auto flex justify-end gap-3 pt-6">
-              <button
-                type="button"
-                onClick={actions.backToTitle}
-                className="whitespace-nowrap rounded border border-ui-border px-5 py-2.5 font-mono text-[14px] tracking-widest text-ui-muted hover:text-ui-text focus-visible:outline-2 focus-visible:outline-ui-cyan"
-              >
-                ← BACK
-              </button>
-              <button
-                ref={launchRef}
-                type="button"
-                onClick={actions.launchMission}
-                className="whitespace-nowrap rounded border-2 border-ui-amber bg-ui-amber/20 px-7 py-2.5 font-display text-[15px] font-bold tracking-[0.2em] text-[#ffe2c2] hover:bg-ui-amber/35 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-amber"
-              >
-                CONFIRM / LAUNCH MISSION »
-              </button>
-            </div>
-          </div>
+        {/* Real mission summary over the baked placeholder blurb. */}
+        <div
+          className="absolute flex flex-col justify-center bg-[#051428] pl-[3px] pr-1"
+          style={{ left: "58.2%", top: "51.2%", width: "37.4%", height: "23.6%" }}
+        >
+          <p className="text-[14px] leading-[1.35] text-[#e8f1f8]">
+            Find three explorers left behind — <strong>Sojourner</strong>, <strong>Spirit</strong> and{" "}
+            <strong>Opportunity</strong> — and learn how each mission ended.
+          </p>
+          <dl className="mt-2 grid grid-cols-[112px_1fr] gap-y-0.5 text-[13px] leading-snug">
+            <dt className="font-mono text-[11.5px] tracking-wider text-[#5fd8ec]">ROVERS:</dt>
+            <dd className="text-[#e8f1f8]">3 to find</dd>
+            <dt className="font-mono text-[11.5px] tracking-wider text-[#5fd8ec]">HAZARDS:</dt>
+            <dd className="whitespace-nowrap text-[#e8f1f8]">Low power · soft soil · dust storm</dd>
+            <dt className="font-mono text-[11.5px] tracking-wider text-[#5fd8ec]">MISSION TIME:</dt>
+            <dd className="text-[#e8f1f8]">About 10 minutes</dd>
+          </dl>
         </div>
+
+        <button
+          ref={launchRef}
+          type="button"
+          onClick={actions.launchMission}
+          aria-label="Confirm and launch mission"
+          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-md outline-none transition hover:brightness-125 focus-visible:brightness-125 focus-visible:[filter:drop-shadow(0_0_6px_#b9ffe0)]"
+          style={{ left: "75.6%", top: "81%", width: "39.5%" }}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={`${ART}/btn_launch.webp`} alt="" className="block w-full" />
+        </button>
       </div>
+
+      <button
+        type="button"
+        onClick={actions.backToTitle}
+        aria-label="Back to title"
+        className="absolute bottom-[16px] left-[12px] w-[140px] outline-none transition hover:brightness-125 focus-visible:brightness-125 focus-visible:[filter:drop-shadow(0_0_6px_#9ff4ff)]"
+      >
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`${ART}/btn_back.webp`} alt="" className="block w-full" />
+      </button>
     </div>
   );
 }

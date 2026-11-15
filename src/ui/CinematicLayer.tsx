@@ -1,11 +1,22 @@
 "use client";
 
+import { useCallback, useState } from "react";
+import type { Subtitle } from "@/game/state/types";
 import { useRun } from "./useRun";
+import { NarrationBox, TypedText, accentFor } from "./NarrationBox";
 
-const SPEAKER: Record<string, string> = {
-  mission_control: "MISSION CONTROL",
-  player_rover: "VOYAGE ROVER",
-};
+/** One narration line: styled comms panel, text typed out in step with the voice clip. */
+function SubtitleLine({ subtitle }: { subtitle: Subtitle }) {
+  const [typing, setTyping] = useState(true);
+  const done = useCallback(() => setTyping(false), []);
+  return (
+    <NarrationBox speaker={subtitle.speaker} live={typing}>
+      <p className="min-h-[2.9em] text-[22px] leading-[1.45] text-[#e9f1f7]">
+        <TypedText text={subtitle.text} seconds={subtitle.revealSeconds} accent={accentFor(subtitle.speaker)} onDone={done} />
+      </p>
+    </NarrationBox>
+  );
+}
 
 /**
  * Cinematic presentation over the canvas:
@@ -39,9 +50,8 @@ export function CinematicLayer() {
       )}
 
       {subtitle && (
-        <div className="absolute bottom-10 left-1/2 w-[900px] -translate-x-1/2 rounded-md bg-black/80 px-8 py-4 text-center" role="status" aria-live="polite">
-          <div className="mb-1 font-mono text-[12px] tracking-[0.35em] text-ui-amber">{SPEAKER[subtitle.speaker]}</div>
-          <p className="text-[22px] leading-snug text-ui-text">{subtitle.text}</p>
+        <div className="absolute bottom-8 left-1/2 w-[900px] -translate-x-1/2" role="status" aria-live="polite">
+          <SubtitleLine key={subtitle.text} subtitle={subtitle} />
         </div>
       )}
     </>

@@ -33,6 +33,17 @@ export const scripts: CinematicScripts = {
       "Prepare for touchdown."
     ]
   },
+  // Phase I / B3 — team-approved Nov 15. Mission Control lines for the trajectory mini-game.
+  // Line 2's fact: interplanetary trajectories aim for where Mars WILL be when the craft arrives.
+  "spaceTravel": {
+    "id": "space",
+    "speaker": "mission_control",
+    "lines": [
+      "Voyage, you've left Earth behind. Now line up your path to Mars.",
+      "We aim for where Mars will be, not where it is now. Stay inside the corridor.",
+      "Trajectory locked. Next stop: Mars."
+    ]
+  },
   "ending": {
     "id": "ending",
     "speaker": "player_rover",

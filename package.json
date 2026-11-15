@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "tag-voice": "node scripts/tag-voice.mjs",
-    "wheel-spin": "node scripts/make-wheel-spin.mjs"
+    "wheel-spin": "node scripts/make-wheel-spin.mjs",
+    "landing-art": "node scripts/make-landing-art.mjs"
   },
   "dependencies": {
     "next": "16.4.6",

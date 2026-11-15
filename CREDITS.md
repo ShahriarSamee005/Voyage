@@ -23,7 +23,8 @@ Mission facts are checked against NASA/JPL pages (science.nasa.gov, jpl.nasa.gov
 | Pixel-art sprites & screen concepts | AI image generation (supplied by the team in `assets/`) | Processed into transparent frames; not used as factual sources. |
 | Atlas V rocket (liftoff + rocket mini-game) and launch pad | AI image generation (supplied by the team) | The game uses exact 1/4-size copies in `public/assets/rocket/`; otherwise unedited. Emblems on the rocket are fictional, not NASA or ULA logos. |
 | Asteroids in the rocket mini-game (small and medium) | AI image generation (supplied by the team) | The game uses resized copies in `public/assets/rocket/` with the empty border and a faint background haze removed; otherwise unedited. Illustrative, not real asteroids. |
-| Cinematic art (lander, Earth, Pathfinder airbags/petals, satellite) | Drawn procedurally in code | Simplified; the fictional Voyage lander is deliberately unlike Pathfinder. |
+| Landing cinematic art: aeroshell, parachute, sky crane, Pathfinder airbags and lander (petals opening) | AI image generation (supplied by the team) | Trimmed, resized WebP copies in `public/assets/landing/` (`npm run landing-art`); otherwise unedited. Illustrative — the real record is the labelled NASA photo PIA00611. |
+| Cinematic scenery (Earth and its continents, launch-site sky, clouds, hills and grass, satellite) | Drawn procedurally in code | Simplified and illustrative. |
 | Music & sound effects | Synthesized live in code (Web Audio API) | Original; no third-party audio files. |
 | Code | AI-assisted development (Claude) | Reviewed and tested by the team. |
 
@@ -33,8 +34,8 @@ Geist and Geist Mono (SIL OFL), Orbitron (SIL OFL) — self-hosted via `next/fon
 
 ## Space Apps 2026 AI rules — how we comply
 
-- **AI images carry a visible watermark:** "PIXEL ART: AI-GENERATED" is shown on the title screen and throughout the game, wherever the AI sprites appear. Real NASA photos are labelled separately ("NASA MISSION IMAGE" / "REAL NASA IMAGE").
+- **AI images carry a visible watermark:** "PIXEL ART: AI-GENERATED" is shown on the rover terminal and throughout gameplay, wherever the AI sprites appear. The title screen is kept clean by team choice (Nov 15); its AI-art note is in the title's Credits panel. Real NASA photos are labelled separately ("NASA MISSION IMAGE" / "REAL NASA IMAGE").
 - **AI audio and code are acknowledged in text and metadata:**
-  - Text: this file, plus the credits on the title and end screens.
+  - Text: this file, the title screen's Credits panel, and the end screen.
   - Metadata: the page's `ai-generated-content` meta tag, and ID3 tags on every narration MP3 (`npm run tag-voice`).
 - **No NASA branding in generated content:** the player rover now uses the team's updated sprite sheet (Nov 14), which carries a lightning-bolt emblem instead of the NASA "meatball". Mission Control and the Voyage mission are fictional and imply no NASA endorsement.

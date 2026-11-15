@@ -1,24 +1,26 @@
 import * as Phaser from "phaser";
 import { GAME_HEIGHT as H, GAME_WIDTH as W } from "../constants";
-import { makeCinematicTextures } from "../art";
+import { exhaustConfig, makeCinematicTextures } from "../art";
 import { actions, isWorldPaused, runStore } from "../state/runStore";
 import { audio } from "../audio/engine";
+import { scripts } from "@/content/scripts";
+import { speakLine, wait } from "../cinematic";
 
 // ~30 s on-rails travel (PRD §4.1 #2): dodge debris AND align the trajectory.
 // No hard fail: hits wobble the rocket and cost some lock progress (soft retry, rules §5).
 
 const ROCKET_X = 230;
 
-// Atlas V (same texture as the liftoff, 221×443, nose up), shown at 1/4 so the rocket is ~105×15 px.
-const ROCKET_SCALE = 0.25;
+// Atlas V (same texture as the liftoff, 221×443, nose up). Fix B1: the rocket is drawn a little
+// larger in this mini-game (~135×19 px, was ~105×15) so it reads as a craft. Asteroids unchanged.
+const ROCKET_SCALE = 0.32;
 // Origin = centre of the solid art (alpha bounds x 81–139.75, y 10.5–431.75), so it turns about its middle.
 const ROCKET_ORIGIN = { x: 110.375 / 221, y: 221.125 / 443 };
-// Exhaust sits just behind the main engine: half the art length (421 px × 1/4 ≈ 52.7) plus a little.
-const TAIL_OFFSET = 54;
-// Hitbox: a capsule along the rocket body, slightly smaller than the art (≈88×12 px vs ≈105×15).
-// Its area (~1025 px²) matches the old placeholder's 18 px circle (~1018 px²).
-const HIT_RADIUS = 6;
-const HIT_HALF_LENGTH = 38;
+// Exhaust sits just behind the main engine: half the art length (421 px × 0.32 ≈ 67.4) plus a little.
+const TAIL_OFFSET = 69;
+// Hitbox: a capsule along the rocket body, a bit smaller than the art (≈110×14 px vs ≈135×19).
+const HIT_RADIUS = 7;
+const HIT_HALF_LENGTH = 48;
 
 // Asteroids replace the old procedural "debris" (a 40×32 texture whose drawn rock was 32×24) and keep
 // its sizes and hitbox exactly: at spawn scale s the rock is 32·s px wide and its hit circle has
@@ -78,20 +80,32 @@ export class RocketScene extends Phaser.Scene {
       .setOrigin(ROCKET_ORIGIN.x, ROCKET_ORIGIN.y)
       .setAngle(90)
       .setScale(ROCKET_SCALE);
-    this.flame = this.add.particles(0, 0, "px_flame", {
-      speedX: { min: -320, max: -200 },
-      speedY: { min: -30, max: 30 },
-      lifespan: 280,
-      scale: { start: 1.6, end: 0.2 },
-      alpha: { start: 1, end: 0 },
-      frequency: 14,
+    // Glowing exhaust plume streaming back from the engines (shared fire style, see art.ts).
+    this.flame = this.add.particles(0, 0, "soft_blob", {
+      ...exhaustConfig({ angle: 180, spread: 7, speed: [300, 460], lifespan: [160, 320], scale: [0.07, 0.22], frequency: 7, quantity: 1 }),
     });
+    // (the rocket is drawn above its own exhaust)
+    this.rocket.setDepth(1);
     this.flame.startFollow(this.rocket, -TAIL_OFFSET, 0);
 
     this.keys = this.input.keyboard!.addKeys("W,S,A,D,UP,DOWN,LEFT,RIGHT", false) as Record<string, Phaser.Input.Keyboard.Key>;
     this.cameras.main.fadeIn(500, 0, 0, 0);
     actions.setSubtitle(null);
     runStore.set({ rocketLock: 0, toast: "Steer with W/S or ↑/↓ · stay in the corridor · dodge debris" });
+    // Phase I (B3): Mission Control talks the player through the transfer (draft script).
+    this.saidMidway = false;
+    this.time.delayedCall(1200, () => void this.say(0));
+  }
+
+  private saidMidway = false;
+
+  /** Speak one space-travel line (voice if recorded, typed subtitle always), then clear it. */
+  private async say(index: number) {
+    const seg = scripts.spaceTravel;
+    const hold = await speakLine(this, seg, index);
+    if (!hold) return;
+    await wait(this, hold);
+    if (runStore.get().subtitle?.text === seg.lines[index]) actions.setSubtitle(null);
   }
 
   /** Corridor centre at a given time — smooth, readable curve toward Mars. */
@@ -192,12 +206,17 @@ export class RocketScene extends Phaser.Scene {
 
     runStore.set({ rocketLock: Math.round(this.lock) });
 
+    if (!this.saidMidway && this.lock >= 45) {
+      this.saidMidway = true;
+      void this.say(1);
+    }
     if (this.lock >= 100) void this.finish();
   }
 
   private async finish() {
     this.done = true;
-    runStore.set({ rocketLock: 100, toast: "Trajectory locked — on course for Mars" });
+    runStore.set({ rocketLock: 100, toast: null }); // Mission Control says it instead
+    void this.say(2);
     this.tweens.add({ targets: this.rocket, x: W + 120, duration: 1600, ease: "Sine.easeIn" });
     this.time.delayedCall(1700, () => this.cameras.main.fadeOut(500, 0, 0, 0));
     this.time.delayedCall(2300, () => actions.setStage("landing"));

@@ -23,6 +23,7 @@ function legState(rover: RoverId): Partial<RunState> {
     solarCondition: LEGS[rover].weather,
     objective: { text: approachObjective(rover), angle: null, distance: null },
     canScan: false,
+    canJump: false,
     toolEngaged: false,
     tractionStatus: "normal",
     communicationStatus: "connected",
@@ -53,6 +54,7 @@ function initialState(runId: number, screen: Screen = "title"): RunState {
     encounterStep: "approach",
     objective: { text: approachObjective(FIRST_LEG), angle: null, distance: null },
     canScan: false,
+    canJump: false,
     unlockedTools: [],
     toolEngaged: false,
     tractionStatus: "normal",
@@ -100,11 +102,34 @@ export function isWorldPaused(s: RunState = state): boolean {
   return s.hubOpen || s.pauseOpen || s.confirmReturnOpen || s.dialogue !== null || s.mode !== "explore";
 }
 
-function travelDialogue(from: RoverId, title: string, lines: string[]): Dialogue {
+/**
+ * End-of-leg dialogue (Phase H): it no longer jump-cuts on its own. Closing it leaves the player
+ * free to explore; the next region is reached by driving to the jump point and choosing to jump.
+ */
+function legCompleteDialogue(from: RoverId, title: string, lines: string[]): Dialogue {
   const next = LEGS[from].next;
   return next
-    ? { speaker: "player_rover", title, lines, actionLabel: `Travel to ${LEGS[next].place}`, action: "travel" }
+    ? {
+        speaker: "player_rover",
+        title,
+        lines: [...lines, `When you're ready, drive to the jump point and choose when to travel on to ${LEGS[next].place}.`],
+        actionLabel: "Head for the jump point",
+        action: "dismiss",
+      }
     : { speaker: "system", title, lines, actionLabel: "Continue exploring", action: "dismiss" };
+}
+
+/** Objective once a leg is done: reach the jump point (the scene adds direction + distance). */
+function jumpObjective(from: RoverId) {
+  const next = LEGS[from].next;
+  return { text: next ? `Drive to the jump point → ${LEGS[next].place}` : "Mission complete", angle: null, distance: null };
+}
+
+/** Great-circle distance between two sites on Mars (km, mean radius 3389.5 km). */
+function marsKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const r = Math.PI / 180;
+  const c = Math.sin(a.lat * r) * Math.sin(b.lat * r) + Math.cos(a.lat * r) * Math.cos(b.lat * r) * Math.cos((b.lon - a.lon) * r);
+  return 3389.5 * Math.acos(Math.max(-1, Math.min(1, c)));
 }
 
 function addTool(tools: string[], id: string): string[] {
@@ -189,8 +214,8 @@ export const actions = {
       runStore.set({
         hubOpen: false,
         encounterStep: "complete",
-        objective: { text: `Sojourner visited — travel on to ${LEGS.spirit.place}`, angle: null, distance: null },
-        dialogue: travelDialogue("sojourner", "Lesson from Sojourner", [
+        objective: jumpObjective("sojourner"),
+        dialogue: legCompleteDialogue("sojourner", "Lesson from Sojourner", [
           "Sojourner relied on the Pathfinder lander to talk to Earth. In September 1997 the lander fell silent — most likely because its battery ran down and it grew too cold — and Sojourner went quiet too.",
           "Your rover runs on sunlight as well. Watch your battery, and stop in the open to let your solar panels recharge before you run low.",
         ]),
@@ -256,6 +281,7 @@ export const actions = {
         lines: rover.discovery.monologue.split("\n").filter(Boolean), // verbatim PRD §4.8
         actionLabel: `Open ${rover.name}'s archive`,
         action: "open_archive",
+        voice: `discovery-${roverId}`, // J3: our rover ("Mina") speaks the discovery remark
       },
     });
   },
@@ -307,25 +333,34 @@ export const actions = {
   escapedSoftSoil() {
     runStore.set({
       encounterStep: "complete",
-      objective: { text: `Spirit leg complete — travel on to ${LEGS.opportunity.place}`, angle: null, distance: null },
-      dialogue: travelDialogue("spirit", "Leg complete", [
+      objective: jumpObjective("spirit"),
+      dialogue: legCompleteDialogue("spirit", "Leg complete", [
         "You drove free of the soft soil that held Spirit for good.",
         "Spirit's archive stays unlocked in your Rover Hub for the rest of this run.",
       ]),
     });
   },
 
-  /** Jump-cut to the next leg (PRD §4.3). Battery, coins, archives and tools carry over. */
+  /**
+   * Jump to the next leg (PRD §4.3) — only when the player CHOOSES to, with the leg complete
+   * (Phase H: no automatic jump-cut). Battery, coins, archives and tools carry over.
+   */
   travelToNextLeg() {
     const from = state.activeEncounterRover;
     const next = from ? LEGS[from].next : null;
-    if (!from || !next) return;
+    if (!from || !next || state.encounterStep !== "complete") return;
     runStore.set({
       ...legState(next),
       dialogue: null,
       hubOpen: false,
       mode: "travel",
-      travel: { from: LEGS[from].place, to: LEGS[next].place },
+      travel: {
+        from: LEGS[from].place,
+        to: LEGS[next].place,
+        fromSite: LEGS[from].site,
+        toSite: LEGS[next].site,
+        km: marsKm(LEGS[from].site, LEGS[next].site),
+      },
     });
   },
   /** Called by the surface scene once the next leg is built. */

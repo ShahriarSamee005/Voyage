@@ -34,5 +34,5 @@ export const TUNING = {
   // Interaction / presentation
   scanRange: 340,
   boundaryMargin: 140, // soft "mission zone" edge that redirects the rover
-  travelCardMs: 2400,
+  travelCardMs: 3600, // the jump map draws its route in ~2.5 s, then holds briefly
 } as const;

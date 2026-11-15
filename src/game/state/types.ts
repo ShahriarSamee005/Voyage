@@ -16,6 +16,8 @@ export type Stage = "opening" | "rocket" | "landing" | "surface" | "ending";
 export interface Subtitle {
   speaker: Speaker;
   text: string;
+  /** Typewriter reveal time: the voice clip's spoken length, or a reading pace without audio. */
+  revealSeconds: number;
 }
 
 export interface Banner {
@@ -37,6 +39,10 @@ export type DialogueAction = "open_archive" | "dismiss" | "travel" | "ending";
 export interface TravelCard {
   from: string;
   to: string;
+  /** Real rover sites (degrees, N/E positive) for the jump map, and the great-circle distance. */
+  fromSite: { lat: number; lon: number };
+  toSite: { lat: number; lon: number };
+  km: number;
 }
 
 export interface Dialogue {
@@ -45,6 +51,11 @@ export interface Dialogue {
   lines: string[];
   actionLabel: string;
   action: DialogueAction;
+  /**
+   * Voice-clip prefix (Phase I): line N plays `${voice}-${N}` if that clip is registered in
+   * voiceClips.ts; otherwise the line types at reading pace in silence.
+   */
+  voice?: string;
 }
 
 export interface Objective {
@@ -84,6 +95,8 @@ export interface RunState {
   encounterStep: EncounterStep;
   objective: Objective;
   canScan: boolean;
+  /** At the jump point with the leg complete: the player may choose to jump (Phase H). */
+  canJump: boolean;
 
   // Rover systems (status shown in My Rover)
   unlockedTools: string[];

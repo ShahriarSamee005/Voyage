@@ -89,6 +89,8 @@ export interface CinematicScripts {
   opening: ScriptSegment;
   openingTags: string[];
   landing: ScriptSegment;
+  /** Phase I (B3): Mission Control during the trajectory mini-game. */
+  spaceTravel: ScriptSegment;
   ending: ScriptSegment;
 }
 

@@ -1,5 +1,5 @@
 import * as Phaser from "phaser";
-import { PLAYER_DIRS, cropPlayerFrames, makeCinematicTextures, makeGroundTexture, makeWheelSpin, wheelSpinTexture } from "../art";
+import { GROUND_DECALS, PLAYER_DIRS, cropPlayerFrames, makeCinematicTextures, makeGroundTexture, makeSurfaceTextures, makeWheelSpin, wheelSpinTexture } from "../art";
 import { runStore } from "../state/runStore";
 import type { Stage } from "../state/types";
 
@@ -43,6 +43,8 @@ export class BootScene extends Phaser.Scene {
     for (const r of ["rock_large_1", "rock_large_2", "rock_medium_1", "rock_medium_2"]) {
       this.load.image(r, `/assets/props/${r}.png`);
     }
+    // Ground details that break up the tiled surface (team AI art, fix D1): flat decals, no collision.
+    for (const d of GROUND_DECALS) this.load.image(d, `/assets/new_assets/mars_environment/${d}.png`);
     // Real NASA image shown at the end of the 1997 flashback (PIA00611).
     this.load.image("nasa_pf_day1", "/assets/nasa-photos/sojourner/sojourner-on-mars.jpg");
     // Earth-liftoff art (Opening scene): Atlas V on its launch pad, team-supplied AI pixel art.
@@ -53,6 +55,11 @@ export class BootScene extends Phaser.Scene {
     // its size group's largest on-screen width (small 38×25 from 128×128, medium 51×48 from 256×256).
     this.load.image("asteroid_small", "/assets/rocket/asteroid_small.png");
     this.load.image("asteroid_medium", "/assets/rocket/asteroid_medium.png");
+    // Landing cinematic (Phase F): trimmed WebP copies of the team's art (`npm run landing-art`).
+    for (const k of ["entry", "chute_modern", "crane_0", "crane_1", "pf_descent", "airbag_0", "airbag_1", "airbag_2"]) {
+      this.load.image(k, `/assets/landing/${k}.webp`);
+    }
+    for (let i = 0; i < 6; i++) this.load.image(`pf_lander_${i}`, `/assets/landing/pf_lander_${i}.webp`);
     this.load.image("atlas_v", "/assets/rocket/atlas_v.png");
     this.load.image("atlas_v_pad", "/assets/rocket/atlas_v_pad.png");
   }
@@ -72,12 +79,16 @@ export class BootScene extends Phaser.Scene {
       "rock_large_2",
       "rock_medium_1",
       "rock_medium_2",
+      ...GROUND_DECALS,
+      ...["entry", "chute_modern", "crane_0", "crane_1", "pf_descent", "airbag_0", "airbag_1", "airbag_2"],
+      ...[0, 1, 2, 3, 4, 5].map((i) => `pf_lander_${i}`),
       // Asteroids are drawn at 0.67–1× of their copy size depending on the random spawn size.
       "asteroid_small",
       "asteroid_medium",
     ];
     for (const key of smooth) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     makeGroundTexture(this);
+    makeSurfaceTextures(this);
     makeCinematicTextures(this);
 
     const sync = () => {

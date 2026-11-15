@@ -34,6 +34,95 @@ export function makeGroundTexture(scene: Phaser.Scene) {
   canvasTex.refresh();
 }
 
+/** Rocket-fire colours over a particle's life: white-hot core → yellow → orange → dark red. */
+export const FIRE_COLORS = [0xfff6d0, 0xffcf5a, 0xff8c26, 0xe0480e, 0x5a1a06];
+
+/**
+ * Rocket exhaust as glowing gas, not a pixel stream: soft round puffs ("soft_blob", made by
+ * BootScene), additive blend, colour running through FIRE_COLORS as each puff cools and fades.
+ * `angle` is the direction the exhaust travels (degrees; 90 = straight down, 180 = left).
+ */
+export function exhaustConfig(o: {
+  angle: number;
+  spread?: number;
+  speed: [number, number];
+  lifespan: [number, number];
+  scale: [number, number];
+  width?: number;
+  frequency?: number;
+  quantity?: number;
+}): Phaser.Types.GameObjects.Particles.ParticleEmitterConfig {
+  const spread = o.spread ?? 6;
+  const w = o.width ?? 0;
+  return {
+    angle: { min: o.angle - spread, max: o.angle + spread },
+    speed: { min: o.speed[0], max: o.speed[1] },
+    lifespan: { min: o.lifespan[0], max: o.lifespan[1] },
+    scale: { start: o.scale[0], end: o.scale[1] },
+    alpha: { start: 0.55, end: 0 },
+    color: FIRE_COLORS,
+    colorEase: "quad.out",
+    blendMode: "ADD",
+    x: { min: -w, max: w },
+    frequency: o.frequency ?? 10,
+    quantity: o.quantity ?? 2,
+  };
+}
+
+/** Flat ground details from new_assets/mars_environment (loaded by BootScene). */
+export const GROUND_DECALS = [
+  "small_crater",
+  "medium_crater",
+  "large_crater",
+  "stone_cluster_1",
+  "stone_cluster_2",
+  "stone_cluster_3",
+  "stone_cluster_4",
+] as const;
+
+/**
+ * Surface helper textures (fixes D1–D3), drawn once on canvases:
+ *  - "soft_blob":   white radial falloff, tinted light/dark for large tonal patches on the ground
+ *  - "soft_shadow": dark elliptical falloff under the rover (and the historic rovers)
+ *  - "track_dash":  one short tread mark; two are stamped per step to make a pair of tire tracks
+ */
+export function makeSurfaceTextures(scene: Phaser.Scene) {
+  const radial = (key: string, w: number, h: number, stops: [number, string][]) => {
+    if (scene.textures.exists(key)) return;
+    const tex = scene.textures.createCanvas(key, w, h)!;
+    const ctx = tex.getContext();
+    ctx.save();
+    ctx.scale(1, h / w); // draw a circle, squashed into an ellipse
+    const grad = ctx.createRadialGradient(w / 2, w / 2, 0, w / 2, w / 2, w / 2);
+    for (const [at, color] of stops) grad.addColorStop(at, color);
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, 0, w, w);
+    ctx.restore();
+    tex.refresh();
+  };
+  radial("soft_blob", 256, 256, [
+    [0, "rgba(255,255,255,1)"],
+    [0.45, "rgba(255,255,255,0.55)"],
+    [1, "rgba(255,255,255,0)"],
+  ]);
+  radial("soft_shadow", 128, 48, [
+    [0, "rgba(20,8,4,0.9)"],
+    [0.55, "rgba(20,8,4,0.55)"],
+    [1, "rgba(20,8,4,0)"],
+  ]);
+  if (!scene.textures.exists("track_dash")) {
+    // 12×5 dark tread mark with soft ends (drawn along +x; rotated to the heading when stamped).
+    const tex = scene.textures.createCanvas("track_dash", 12, 5)!;
+    const ctx = tex.getContext();
+    ctx.fillStyle = "rgba(70,30,16,1)";
+    ctx.fillRect(2, 0, 8, 5);
+    ctx.fillStyle = "rgba(70,30,16,0.5)";
+    ctx.fillRect(0, 1, 2, 3);
+    ctx.fillRect(10, 1, 2, 3);
+    tex.refresh();
+  }
+}
+
 /**
  * Expose a "body" frame on each player rover texture. The updated 256×256 frames are clean,
  * so "body" is the whole frame (kept as a named frame so scenes don't depend on the art's layout).

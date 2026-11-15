@@ -2,6 +2,7 @@
 
 import { actions, POWER_TOOL_ID, TRACTION_TOOL_ID } from "@/game/state/runStore";
 import { TUNING } from "@/game/tuning";
+import { LEGS } from "@/game/legs";
 import { useRun } from "../useRun";
 import { SOLAR_LABEL, TOOL_SHORT } from "../labels";
 import { BatteryBar } from "./BatteryBar";
@@ -22,6 +23,11 @@ export function Hud() {
   const objective = useRun((s) => s.objective);
   const warning = useRun((s) => s.warning);
   const canScan = useRun((s) => s.canScan);
+  const canJump = useRun((s) => s.canJump);
+  const nextPlace = useRun((s) => {
+    const next = s.activeEncounterRover ? LEGS[s.activeEncounterRover].next : null;
+    return next ? LEGS[next].place : null;
+  });
   // Show the tool that belongs to the current leg, once unlocked.
   const legTool = useRun((s) => {
     const id = s.activeEncounterRover ? LEG_TOOL[s.activeEncounterRover] : undefined;
@@ -31,16 +37,24 @@ export function Hud() {
   const canQuickCharge = useRun((s) => actions.canQuickCharge(s));
   const showQuickCharge = useRun((s) => s.batteryChargePercent < 80);
   const exploring = useRun((s) => s.mode === "explore" && !s.dialogue && !s.pauseOpen);
+  const outOfPower = useRun((s) => s.outOfPower);
+  const severeStorm = useRun((s) => s.severeStorm);
+  const lowPower = outOfPower || battery < TUNING.lowBatteryWarning;
 
   if (!exploring) return null;
 
   return (
     <>
-      {/* upper-left: battery + coins */}
-      <div className={`${panel} absolute left-5 top-5 w-[290px] px-4 py-3`}>
+      {/* upper-left: battery + coins — glows red and pulses when power is low */}
+      <div
+        data-hud-avoid
+        className={`${panel} absolute left-5 top-5 w-[290px] px-4 py-3 ${lowPower ? "animate-[lowbat-glow_1.1s_ease-in-out_infinite]" : ""}`}
+      >
         <div className="mb-1.5 flex items-baseline justify-between font-mono text-[13px] tracking-widest text-ui-muted">
-          <span>BATTERY</span>
-          <span className="text-[18px] text-ui-text">{battery}%</span>
+          <span className={lowPower ? "text-ui-danger" : ""}>{outOfPower ? "⚠ NO POWER" : lowPower ? "⚠ LOW BATTERY" : "BATTERY"}</span>
+          <span className={`text-[18px] ${lowPower ? "animate-[lowbat-blink_1.1s_linear_infinite] font-bold text-ui-danger" : "text-ui-text"}`}>
+            {battery}%
+          </span>
         </div>
         <BatteryBar percent={battery} wide />
         <div className="mt-2 flex items-center justify-between font-mono text-[13px]">
@@ -66,7 +80,7 @@ export function Hud() {
       </div>
 
       {/* upper-right: objective + direction */}
-      <div className={`${panel} absolute right-5 top-5 flex w-[340px] items-center gap-3 px-4 py-3`}>
+      <div data-hud-avoid className={`${panel} absolute right-5 top-5 flex w-[340px] items-center gap-3 px-4 py-3`}>
         <div className="flex-1">
           <div className="font-mono text-[12px] tracking-widest text-ui-amber">OBJECTIVE</div>
           <div className="text-[15px] leading-snug">{objective.text}</div>
@@ -84,14 +98,60 @@ export function Hud() {
       </div>
 
       {/* contextual warning (icon + label + color, never color alone) */}
-      {warning && (
-        <div className="absolute left-1/2 top-5 -translate-x-1/2 rounded border border-ui-warning/70 bg-ui-background/90 px-4 py-1.5 font-mono text-[14px] tracking-widest text-ui-warning">
+      {warning && !(outOfPower && !severeStorm) && (
+        <div data-hud-avoid className="absolute left-1/2 top-5 -translate-x-1/2 rounded border border-ui-warning/70 bg-ui-background/90 px-4 py-1.5 font-mono text-[14px] tracking-widest text-ui-warning">
           ⚠ {warning}
         </div>
       )}
 
+      {/* Out of power: say plainly WHY the rover won't move and what to do (playtest feedback). */}
+      {outOfPower && !severeStorm && (
+        <div
+          data-hud-avoid
+          role="alert"
+          className="absolute left-1/2 top-5 w-[520px] -translate-x-1/2 animate-[lowbat-glow_1.1s_ease-in-out_infinite] rounded-md border-2 border-ui-danger bg-ui-background/95 px-6 py-4 text-center"
+        >
+          <div className="font-display text-[22px] font-bold tracking-[0.2em] text-ui-danger">⚡ OUT OF POWER</div>
+          <p className="mt-1.5 text-[15px] leading-snug text-ui-text">
+            Your rover can&apos;t drive until its battery recharges. Stay still in the sunlight — driving resumes at{" "}
+            {TUNING.minChargeToDriveAfterEmpty}%.
+          </p>
+          <div className="mx-auto mt-3 h-2 w-[360px] overflow-hidden rounded-full bg-ui-panel-raised">
+            <div
+              className="h-full rounded-full bg-ui-cyan transition-[width] duration-300"
+              style={{ width: `${Math.min(100, (battery / TUNING.minChargeToDriveAfterEmpty) * 100)}%` }}
+            />
+          </div>
+          <div className="mt-1.5 font-mono text-[12px] tracking-widest text-ui-muted">
+            RECHARGING {battery}% / {TUNING.minChargeToDriveAfterEmpty}%
+            {canQuickCharge && (
+              <span className="text-ui-amber"> · OR PRESS C FOR A QUICK CHARGE ({TUNING.quickChargeCost}◉)</span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {canJump && nextPlace && (
+        <div
+          data-hud-avoid
+          className="pointer-events-auto absolute bottom-24 left-1/2 flex -translate-x-1/2 items-center gap-4 rounded-md border border-ui-cyan/80 bg-ui-background/92 px-5 py-2.5 text-[16px] shadow-[0_0_18px_rgba(104,215,233,0.3)]"
+        >
+          <span>
+            Jump point reached. Press <kbd className="rounded border border-ui-cyan px-1.5 font-mono text-ui-cyan">E</kbd> to jump to{" "}
+            <strong>{nextPlace}</strong> <span className="text-ui-muted">— or keep exploring</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => actions.travelToNextLeg()}
+            className="whitespace-nowrap rounded border border-ui-cyan bg-ui-cyan/15 px-3 py-1 font-mono text-[13px] tracking-widest text-ui-cyan hover:bg-ui-cyan/25 focus-visible:outline-2 focus-visible:outline-ui-cyan"
+          >
+            JUMP ▸
+          </button>
+        </div>
+      )}
+
       {canScan && (
-        <div className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-md border border-ui-amber/80 bg-ui-background/90 px-5 py-2 text-[16px]">
+        <div data-hud-avoid className="absolute bottom-24 left-1/2 -translate-x-1/2 rounded-md border border-ui-amber/80 bg-ui-background/90 px-5 py-2 text-[16px]">
           Press <kbd className="rounded border border-ui-amber px-1.5 font-mono text-ui-amber">E</kbd> to scan the rover
           ahead
         </div>
@@ -100,6 +160,7 @@ export function Hud() {
       {/* lower-left: Rover Hub button */}
       <button
         type="button"
+        data-hud-avoid
         onClick={() => actions.openHub("my_rover")}
         className={`${panel} pointer-events-auto absolute bottom-5 left-5 px-4 py-2.5 font-mono text-[14px] tracking-widest text-ui-cyan hover:border-ui-cyan focus-visible:outline-2 focus-visible:outline-ui-cyan`}
       >
@@ -107,7 +168,7 @@ export function Hud() {
       </button>
 
       {/* lower-right: tool + pause */}
-      <div className="absolute bottom-5 right-5 flex items-center gap-3">
+      <div data-hud-avoid className="absolute bottom-5 right-5 flex items-center gap-3">
         {legTool && (
           <div className={`${panel} px-4 py-2.5 font-mono text-[13px] tracking-wide`}>
             <span className="text-ui-muted">{TOOL_SHORT[legTool]} </span>
