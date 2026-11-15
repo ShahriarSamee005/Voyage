@@ -3,7 +3,7 @@
 **Format:** screen capture of the live game, 1280×720 or larger, game audio on. English captions are already on screen for the narration.
 **Record from:** the deployed Vercel URL (proves it works).
 **Don't show:** any team member under 18 (face, voice).
-**Keep visible:** the "PIXEL ART: AI-GENERATED" watermark (required), and the "NASA MISSION IMAGE" labels.
+**Keep visible:** the "NASA MISSION IMAGE" labels. The game no longer shows an AI-art watermark, so add a small caption in the video edit, e.g. "Pixel art: AI-generated" (Space Apps 2026 asks for AI images to be visibly marked).
 
 | Time | Shot | On-screen / voice |
 |---|---|---|

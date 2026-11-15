@@ -64,7 +64,7 @@ You pilot a fictional rover, *Voyage*, from launch to Mars. There you find the t
 | Narration: ElevenLabs voices "Martin" (Mission Control) and "Mina" (our rover) | Free plan, so it's non-commercial and must credit **elevenlabs.io** (done on the title and end screens). |
 | Music and SFX synthesized with the Web Audio API | Original, no licensing, tiny download. |
 | Subtitles always on; each line waits for its voice clip | The story still works with the sound off or if audio fails. |
-| No NASA logos in generated art; AI art watermarked "PIXEL ART: AI-GENERATED" | Space Apps 2026 AI rules. |
+| No NASA logos in generated art; AI art acknowledged in Credits, not watermarked on screen (team choice, Nov 15) | Space Apps 2026 AI rules ask for a visible watermark; the team chose a clean screen and accepted that risk. |
 | Wheel spin pre-rendered by a script (`npm run wheel-spin`) | Small files (~170 KB). Struts and wheel outlines never smear. |
 
 ## 5. How the game is built

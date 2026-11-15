@@ -75,7 +75,7 @@ Full table: `content-prep/nasa-images.md`.
 
 ## Use of AI (SI) tools — required note
 
-- **AI-generated pixel art** (rover sprites, terrain, props), made by the team with an AI image tool. It is watermarked in-game ("PIXEL ART: AI-GENERATED"). We removed a NASA logo that the generator had put on our fictional rover. AI art is never used as a factual source.
+- **AI-generated pixel art** (rover sprites, terrain, props), made by the team with an AI image tool. It is acknowledged in the game's Credits panel and in the page metadata. We removed a NASA logo that the generator had put on our fictional rover. AI art is never used as a factual source.
 - **Narration voices:** ElevenLabs text-to-speech, reading our approved script. Credited on screen and in the MP3 metadata (elevenlabs.io).
 - **Rover chat:** Google Gemini, constrained to curated NASA facts, with an offline fallback.
 - **Code:** AI-assisted development (Claude), reviewed and tested by the team.

@@ -34,7 +34,7 @@ Geist and Geist Mono (SIL OFL), Orbitron (SIL OFL) — self-hosted via `next/fon
 
 ## Space Apps 2026 AI rules — how we comply
 
-- **AI images carry a visible watermark:** "PIXEL ART: AI-GENERATED" is shown on the rover terminal and throughout gameplay, wherever the AI sprites appear. The title screen is kept clean by team choice (Nov 15); its AI-art note is in the title's Credits panel. Real NASA photos are labelled separately ("NASA MISSION IMAGE" / "REAL NASA IMAGE").
+- **AI images are acknowledged, not watermarked on screen:** by team choice (Nov 15) the game shows no on-screen AI-art watermark. The AI art is acknowledged in the title screen's Credits panel, in this file, in `SUBMISSION.md`, and in the page's `ai-generated-content` meta tag. Real NASA photos are labelled in-game ("NASA MISSION IMAGE" / "REAL NASA IMAGE"), so they are never confused with generated art.
 - **AI audio and code are acknowledged in text and metadata:**
   - Text: this file, the title screen's Credits panel, and the end screen.
   - Metadata: the page's `ai-generated-content` meta tag, and ID3 tags on every narration MP3 (`npm run tag-voice`).

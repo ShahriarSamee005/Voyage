@@ -72,18 +72,9 @@ export default function GameShell() {
           {screen === "destination" && <DestinationSelect />}
           {screen === "game" && <Overlay />}
           {screen === "data_home" && <DataBeamedHome />}
-          {/* Space Apps 2026: AI-generated images must carry a visible watermark. Shown wherever the
-              AI pixel-art sprites appear; real NASA photos are labelled separately as NASA images. */}
-          {(screen === "destination" || screen === "game") && (
-            <div
-              className={`absolute font-mono text-[10px] tracking-[0.25em] text-white/55 [text-shadow:0_0_3px_#000] ${
-                // the terminal art has its console and character at bottom centre — keep the mark clear of them
-                screen === "destination" ? "bottom-[8px] right-[16px] text-white/70" : "bottom-1 left-1/2 -translate-x-1/2"
-              }`}
-            >
-              PIXEL ART: AI-GENERATED
-            </div>
-          )}
+          {/* Team decision (Nov 15): no on-screen AI-art watermark. The AI-art acknowledgment lives in
+              the title's Credits panel, CREDITS.md and the page's ai-generated-content meta tag;
+              real NASA photos are still labelled in-game as NASA images. */}
         </div>
       </div>
     </div>

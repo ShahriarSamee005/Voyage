@@ -37,26 +37,22 @@ export function Hud() {
   const canQuickCharge = useRun((s) => actions.canQuickCharge(s));
   const showQuickCharge = useRun((s) => s.batteryChargePercent < 80);
   const exploring = useRun((s) => s.mode === "explore" && !s.dialogue && !s.pauseOpen);
-  const outOfPower = useRun((s) => s.outOfPower);
-  const severeStorm = useRun((s) => s.severeStorm);
-  const lowPower = outOfPower || battery < TUNING.lowBatteryWarning;
+  // Low power: only the battery indicator itself (bar + %) blinks red — nothing else changes.
+  const lowPower = useRun((s) => s.outOfPower || s.batteryChargePercent < TUNING.lowBatteryWarning);
 
   if (!exploring) return null;
 
   return (
     <>
-      {/* upper-left: battery + coins — glows red and pulses when power is low */}
-      <div
-        data-hud-avoid
-        className={`${panel} absolute left-5 top-5 w-[290px] px-4 py-3 ${lowPower ? "animate-[lowbat-glow_1.1s_ease-in-out_infinite]" : ""}`}
-      >
+      {/* upper-left: battery + coins */}
+      <div data-hud-avoid className={`${panel} absolute left-5 top-5 w-[290px] px-4 py-3`}>
         <div className="mb-1.5 flex items-baseline justify-between font-mono text-[13px] tracking-widest text-ui-muted">
-          <span className={lowPower ? "text-ui-danger" : ""}>{outOfPower ? "⚠ NO POWER" : lowPower ? "⚠ LOW BATTERY" : "BATTERY"}</span>
-          <span className={`text-[18px] ${lowPower ? "animate-[lowbat-blink_1.1s_linear_infinite] font-bold text-ui-danger" : "text-ui-text"}`}>
+          <span>BATTERY</span>
+          <span className={`text-[18px] ${lowPower ? "animate-[lowbat-blink_1s_linear_infinite] text-ui-danger" : "text-ui-text"}`}>
             {battery}%
           </span>
         </div>
-        <BatteryBar percent={battery} wide />
+        <BatteryBar percent={battery} wide alert={lowPower} />
         <div className="mt-2 flex items-center justify-between font-mono text-[13px]">
           <span className={charging ? "text-ui-cyan" : "text-ui-muted"}>
             ☀ {SOLAR_LABEL[solar]}
@@ -98,36 +94,9 @@ export function Hud() {
       </div>
 
       {/* contextual warning (icon + label + color, never color alone) */}
-      {warning && !(outOfPower && !severeStorm) && (
+      {warning && (
         <div data-hud-avoid className="absolute left-1/2 top-5 -translate-x-1/2 rounded border border-ui-warning/70 bg-ui-background/90 px-4 py-1.5 font-mono text-[14px] tracking-widest text-ui-warning">
           ⚠ {warning}
-        </div>
-      )}
-
-      {/* Out of power: say plainly WHY the rover won't move and what to do (playtest feedback). */}
-      {outOfPower && !severeStorm && (
-        <div
-          data-hud-avoid
-          role="alert"
-          className="absolute left-1/2 top-5 w-[520px] -translate-x-1/2 animate-[lowbat-glow_1.1s_ease-in-out_infinite] rounded-md border-2 border-ui-danger bg-ui-background/95 px-6 py-4 text-center"
-        >
-          <div className="font-display text-[22px] font-bold tracking-[0.2em] text-ui-danger">⚡ OUT OF POWER</div>
-          <p className="mt-1.5 text-[15px] leading-snug text-ui-text">
-            Your rover can&apos;t drive until its battery recharges. Stay still in the sunlight — driving resumes at{" "}
-            {TUNING.minChargeToDriveAfterEmpty}%.
-          </p>
-          <div className="mx-auto mt-3 h-2 w-[360px] overflow-hidden rounded-full bg-ui-panel-raised">
-            <div
-              className="h-full rounded-full bg-ui-cyan transition-[width] duration-300"
-              style={{ width: `${Math.min(100, (battery / TUNING.minChargeToDriveAfterEmpty) * 100)}%` }}
-            />
-          </div>
-          <div className="mt-1.5 font-mono text-[12px] tracking-widest text-ui-muted">
-            RECHARGING {battery}% / {TUNING.minChargeToDriveAfterEmpty}%
-            {canQuickCharge && (
-              <span className="text-ui-amber"> · OR PRESS C FOR A QUICK CHARGE ({TUNING.quickChargeCost}◉)</span>
-            )}
-          </div>
         </div>
       )}
 

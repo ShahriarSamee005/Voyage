@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   // AI acknowledgment in page metadata (Space Apps 2026 submission guide); details in CREDITS.md.
   other: {
     "ai-generated-content":
-      "Pixel-art sprites: AI-generated (watermarked in-game). Narration voices: ElevenLabs (elevenlabs.io). Rover chat: Google Gemini. Code: AI-assisted (Claude). Real NASA photos are unaltered and credited.",
+      "Pixel-art sprites and screen art: AI-generated (acknowledged in the in-game Credits panel). Narration voices: ElevenLabs (elevenlabs.io). Rover chat: Google Gemini. Code: AI-assisted (Claude). Real NASA photos are unaltered and credited.",
   },
 };
 

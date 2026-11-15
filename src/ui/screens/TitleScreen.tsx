@@ -164,7 +164,7 @@ function CreditsPanel({ onClose }: { onClose: () => void }) {
     ["Real NASA images", "NASA/JPL, NASA/JPL-Caltech, Cornell, ASU — via NASA Photojournal, labelled in game"],
     ["Narration voices", "AI-generated with ElevenLabs (elevenlabs.io)"],
     ["Rover chat", "Google Gemini, answering only from NASA mission facts"],
-    ["Art", "Pixel art and screen art are AI-generated (marked on screen); cinematic craft drawn in code"],
+    ["Art", "Pixel art and screen art are AI-generated; cinematic scenery drawn in code"],
     ["Music & sound", "Synthesized live in code"],
     ["Code", "AI-assisted (Claude), reviewed and tested by the team"],
     ["Fonts", "Geist, Geist Mono, Orbitron (SIL Open Font License)"],
