@@ -34,6 +34,102 @@ export function makeGroundTexture(scene: Phaser.Scene) {
   canvasTex.refresh();
 }
 
+/** Small seeded PRNG (same family as the scenes' mulberry32) for repeatable ground textures. */
+function seeded(seed: number) {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) | 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+/**
+ * A soft, irregular "splat" of a 64 px tile's texture: the tile pattern (randomly flipped)
+ * cut out by a blobby mask with feathered edges. Used to blend tile variants without seams.
+ */
+function tileSplat(src: CanvasImageSource, size: number, rand: () => number, lumps = 6): HTMLCanvasElement {
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d")!;
+  const pattern = ctx.createPattern(src, "repeat")!;
+  const fx = rand() > 0.5 ? -1 : 1;
+  const fy = rand() > 0.5 ? -1 : 1;
+  pattern.setTransform(new DOMMatrix([fx, 0, 0, fy, Math.floor(rand() * 64), Math.floor(rand() * 64)]));
+  ctx.fillStyle = pattern;
+  ctx.fillRect(0, 0, size, size);
+  // Blobby feathered mask: a few overlapping radial gradients.
+  const m = document.createElement("canvas");
+  m.width = m.height = size;
+  const mctx = m.getContext("2d")!;
+  mctx.globalCompositeOperation = "lighter";
+  for (let i = 0; i < lumps; i++) {
+    const r = size * (0.18 + rand() * 0.2);
+    const x = size / 2 + (rand() - 0.5) * size * 0.45;
+    const y = size / 2 + (rand() - 0.5) * size * 0.45;
+    const g = mctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, "rgba(255,255,255,0.75)");
+    g.addColorStop(0.55, "rgba(255,255,255,0.45)");
+    g.addColorStop(1, "rgba(255,255,255,0)");
+    mctx.fillStyle = g;
+    mctx.fillRect(0, 0, size, size);
+  }
+  ctx.globalCompositeOperation = "destination-in";
+  ctx.drawImage(m, 0, 0);
+  return c;
+}
+
+/**
+ * Varied Mars ground (Nov 15): a 2048 px seamless chunk. The mirrored flat tile is the base; the
+ * other flat tiles are splatted over it in hundreds of soft blobs (wrapping at the edges so the
+ * chunk still tiles), so there's no visible repeat and no grid seams. Needs flat_1..4 loaded.
+ */
+export function makeVariedGround(scene: Phaser.Scene, key: string, seed: number) {
+  if (scene.textures.exists(key)) return;
+  makeGroundTexture(scene);
+  const S = 2048;
+  const tex = scene.textures.createCanvas(key, S, S)!;
+  const ctx = tex.getContext();
+  const base = scene.textures.get("ground_mirror").getSourceImage() as HTMLCanvasElement;
+  ctx.fillStyle = ctx.createPattern(base, "repeat")!;
+  ctx.fillRect(0, 0, S, S);
+  const rand = seeded(seed);
+  const tiles = [1, 2, 3, 4].map((i) => scene.textures.get(`flat_${i}`).getSourceImage() as HTMLImageElement);
+  const splats: HTMLCanvasElement[] = [];
+  for (let i = 0; i < 24; i++) splats.push(tileSplat(tiles[i % 4], [128, 192, 256][i % 3], rand));
+  for (let i = 0; i < 700; i++) {
+    const sp = splats[Math.floor(rand() * splats.length)];
+    const x = Math.floor(rand() * S);
+    const y = Math.floor(rand() * S);
+    ctx.globalAlpha = 0.55 + rand() * 0.45;
+    // Draw with wrap-around so the chunk stays seamless.
+    for (const ox of [0, -S]) for (const oy of [0, -S]) ctx.drawImage(sp, x + ox, y + oy);
+  }
+  ctx.globalAlpha = 1;
+  tex.refresh();
+}
+
+/** Soft-edged patches of rocky ground (rocky tiles 1–4) laid under the rock fields. */
+export function makeRockyPatches(scene: Phaser.Scene) {
+  if (scene.textures.exists("rocky_patch_0")) return;
+  const rand = seeded(9173);
+  const tiles = [1, 2, 3, 4].map((i) => scene.textures.get(`rocky_${i}`).getSourceImage() as HTMLImageElement);
+  for (let p = 0; p < 4; p++) {
+    const S = 512;
+    const tex = scene.textures.createCanvas(`rocky_patch_${p}`, S, S)!;
+    const ctx = tex.getContext();
+    // Several rocky splats overlapping into one irregular patch.
+    for (let i = 0; i < 9; i++) {
+      const sp = tileSplat(tiles[Math.floor(rand() * 4)], 320, rand, 5);
+      ctx.globalAlpha = 0.8 + rand() * 0.2;
+      ctx.drawImage(sp, 40 + rand() * (S - 400), 40 + rand() * (S - 400));
+    }
+    ctx.globalAlpha = 1;
+    tex.refresh();
+  }
+}
+
 /** Rocket-fire colours over a particle's life: white-hot core → yellow → orange → dark red. */
 export const FIRE_COLORS = [0xfff6d0, 0xffcf5a, 0xff8c26, 0xe0480e, 0x5a1a06];
 

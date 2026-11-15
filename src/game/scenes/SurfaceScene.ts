@@ -5,7 +5,7 @@ import { actions, isWorldPaused, POWER_TOOL_ID, runStore, TRACTION_TOOL_ID } fro
 import type { EncounterStep, RunState, SolarCondition, TractionStatus } from "../state/types";
 import { stepPower } from "../systems/power";
 import { GAME_HEIGHT, GAME_WIDTH } from "../config";
-import { wheelSpinAnim, wheelSpinTexture } from "../art";
+import { makeRockyPatches, makeVariedGround, wheelSpinAnim, wheelSpinTexture } from "../art";
 import { audio } from "../audio/engine";
 
 // Mars surface — one scene, rebuilt per leg from LEGS (Sojourner → Spirit → Opportunity).
@@ -175,6 +175,8 @@ export class SurfaceScene extends Phaser.Scene {
   private ePressQueued = false;
   /** Craters placed on the ground; rocks keep clear of them. */
   private craterZones: { x: number; y: number; r: number; solid: boolean; w: number; h: number }[] = [];
+  /** Rocky fields laid by buildGround (Nov 15); buildRocks puts boulders in them. */
+  private rockFields: { x: number; y: number; r: number }[] = [];
   private shadow!: Phaser.GameObjects.Image;
   // Tire tracks (fix D3): a recycled pool of tread-mark stamps that fade out over time.
   private tracks: { img: Phaser.GameObjects.Image; born: number; alpha: number }[] = [];
@@ -214,6 +216,7 @@ export class SurfaceScene extends Phaser.Scene {
     this.facing = "N";
     // The scene instance is reused across legs: reset per-leg collections here, not in initializers.
     this.craterZones = [];
+    this.rockFields = [];
     this.tracks = [];
     this.trackPool = [];
     this.trackClock = 0;
@@ -317,7 +320,16 @@ export class SurfaceScene extends Phaser.Scene {
     // it is laid at half strength over its own average colour (keeps the grain, loses the motif),
     // then much larger features go on top.
     this.add.rectangle(0, 0, world.width, world.height, 0xbf4a2f).setOrigin(0).setDepth(-10.5);
-    this.add.tileSprite(0, 0, world.width, world.height, "ground_mirror").setOrigin(0).setDepth(-10).setAlpha(0.5);
+    // Nov 15: the four flat tiles blended in soft splats (no visible repeat, no grid seams).
+    const groundKey = `ground_var_${this.leg.rover}`;
+    // One 2048 px ground texture at a time: free the previous site's before building this one.
+    for (const k of ["sojourner", "spirit", "opportunity"]) {
+      const old = `ground_var_${k}`;
+      if (old !== groundKey && this.textures.exists(old)) this.textures.remove(old);
+    }
+    makeVariedGround(this, groundKey, rockSeed * 131 + 5);
+    makeRockyPatches(this);
+    this.add.tileSprite(0, 0, world.width, world.height, groundKey).setOrigin(0).setDepth(-10).setAlpha(0.62);
     const rng = mulberry32(rockSeed * 31 + 7);
     const area = world.width * world.height;
     const rand = (a: number, b: number) => a + rng() * (b - a);
@@ -373,16 +385,86 @@ export class SurfaceScene extends Phaser.Scene {
         placed++;
       }
     }
+    const { fields, craterClusters } = this.leg.terrain;
+
+    // 3) Crater clusters: a few small craters pocked close together (non-solid, like the rest
+    //    of the small craters).
+    const small = this.textures.get("small_crater").getSourceImage() as HTMLImageElement;
+    for (let c = 0, tries = 0; c < craterClusters && tries < 300; tries++) {
+      const cx = rand(200, world.width - 200);
+      const cy = rand(200, world.height - 200);
+      if (keepClear(cx, cy, 120)) continue;
+      const n = 3 + Math.floor(rng() * 3);
+      for (let k = 0; k < n; k++) {
+        const scale = rand(0.3, 0.62);
+        const r = (small.width * scale) / 2;
+        const x = cx + (rng() - 0.5) * 220;
+        const y = cy + (rng() - 0.5) * 140;
+        if (this.craterZones.some((z) => Phaser.Math.Distance.Between(x, y, z.x, z.y) < z.r + r + 6)) continue;
+        this.add.image(x, y, "small_crater").setScale(scale).setFlipX(rng() > 0.5).setDepth(-8);
+        this.craterZones.push({ x, y, r, solid: false, w: small.width * scale, h: small.height * scale });
+      }
+      c++;
+    }
+
+    // 4) Rocky fields (Nov 15): instead of single stone clusters scattered evenly, rocks gather
+    //    into fields: a soft patch of rocky ground packed with stone clusters, densest in the
+    //    middle and thinning out at the edges. buildRocks() adds a few solid boulders to each.
     const stones = ["stone_cluster_1", "stone_cluster_2", "stone_cluster_3", "stone_cluster_4"];
-    for (let i = 0, placed = 0; placed < Math.round(area / 42000) && i < 3000; i++) {
+    this.rockFields = [];
+    for (let f = 0, tries = 0; f < fields && tries < 600; tries++) {
+      const R = rand(120, 250);
+      const x = rand(R + 60, world.width - R - 60);
+      const y = rand(R * 0.7 + 60, world.height - R * 0.7 - 60);
+      if (keepClear(x, y, R * 0.8)) continue;
+      if (this.rockFields.some((o) => Phaser.Math.Distance.Between(x, y, o.x, o.y) < o.r + R + 60)) continue;
+      this.add
+        .image(x, y, `rocky_patch_${Math.floor(rng() * 4)}`)
+        .setDisplaySize(R * 3.3, R * 2.3)
+        .setRotation(rand(-0.25, 0.25))
+        .setFlipX(rng() > 0.5)
+        .setDepth(-9.6);
+      const n = Math.round(R / 4.2);
+      for (let k = 0; k < n; k++) {
+        // Bias toward the middle: denser core, sparse fringe.
+        const d = Math.pow(rng(), 0.75);
+        const a = rng() * Math.PI * 2;
+        const sx = x + Math.cos(a) * d * R * 1.15;
+        const sy = y + Math.sin(a) * d * R * 0.72;
+        this.add
+          .image(sx, sy, stones[Math.floor(rng() * stones.length)])
+          .setScale(rand(0.75, 1.35) * (1.25 - d * 0.5))
+          .setFlipX(rng() > 0.5)
+          .setAngle(rand(-20, 20))
+          .setDepth(-8);
+      }
+      // Small loose rocks among the stones (decoration only; the rover rolls over them).
+      for (let k = 0, m = Math.round(R / 22); k < m; k++) {
+        const d = Math.pow(rng(), 0.8);
+        const a = rng() * Math.PI * 2;
+        const rx = x + Math.cos(a) * d * R * 1.05;
+        const ry = y + Math.sin(a) * d * R * 0.66;
+        this.add
+          .image(rx, ry, ["rock_medium_1", "rock_medium_2", "rock_large_1", "rock_large_2"][Math.floor(rng() * 4)])
+          .setScale(rand(0.14, 0.26))
+          .setOrigin(0.5, 0.8)
+          .setFlipX(rng() > 0.5)
+          .setDepth(ry - 40);
+      }
+      this.rockFields.push({ x, y, r: R });
+      f++;
+    }
+
+    // A light sprinkle of loose stones between the fields.
+    for (let i = 0, placed = 0; placed < Math.round(area / 220000) && i < 1000; i++) {
       const x = rand(30, world.width - 30);
       const y = rand(30, world.height - 30);
       if (keepClear(x, y, 20)) continue;
       this.add
         .image(x, y, stones[Math.floor(rng() * stones.length)])
-        .setScale(rand(0.7, 1.35))
+        .setScale(rand(0.5, 0.9))
         .setFlipX(rng() > 0.5)
-        .setAlpha(rand(0.75, 1))
+        .setAlpha(rand(0.6, 0.85))
         .setDepth(-8);
       placed++;
     }
@@ -608,8 +690,78 @@ export class SurfaceScene extends Phaser.Scene {
       }
     }
 
+    // A few solid boulders sitting in each rocky field (medium and large, as at Ares Vallis).
+    const per = this.leg.terrain.fieldBoulders;
+    for (const f of this.rockFields) {
+      for (let k = 0; k < per; k++) {
+        const a = rng() * Math.PI * 2;
+        const d = rng() * 0.6;
+        const x = f.x + Math.cos(a) * d * f.r;
+        const y = f.y + Math.sin(a) * d * f.r * 0.6;
+        if (Phaser.Math.Distance.Between(x, y, spawn.x, spawn.y) < 300) continue;
+        if (this.leg.checkpoint && Phaser.Math.Distance.Between(x, y, this.leg.checkpoint.x, this.leg.checkpoint.y) < 240) continue;
+        const kind = kinds[Math.floor(rng() * kinds.length)];
+        const img = this.add.image(x, y, kind).setScale(0.4 + rng() * 0.32).setOrigin(0.5, 0.8).setFlipX(rng() > 0.5).setDepth(y);
+        const w = img.displayWidth * 0.7;
+        const h = img.displayHeight * 0.35;
+        group.add(this.add.zone(x, y - h * 0.3, w, h));
+      }
+    }
+
     if (this.leg.rockFormations) this.buildFormations(group, this.leg.rockFormations);
+    if (this.leg.terrain.routeFormations) this.buildRouteFormations(group, this.leg.terrain.routeFormations);
     return group;
+  }
+
+  /**
+   * Spirit (Nov 15): wide and tall rock formations in two loose rows either side of the drive
+   * from the landing spot toward Spirit, like the walls of a shallow valley pointing the way.
+   * Kept off the spawn, the soft-soil trap, the jump point and the drive from Spirit to it.
+   */
+  private buildRouteFormations(group: Phaser.Physics.Arcade.StaticGroup, count: number) {
+    const { spawn, target, softSoil, world } = this.leg;
+    const cp = this.leg.checkpoint;
+    const rng = mulberry32(this.leg.rockSeed * 13 + 1);
+    const rand = (lo: number, hi: number) => lo + rng() * (hi - lo);
+    const dx = target.x - spawn.x;
+    const dy = target.y - spawn.y;
+    const len = Math.hypot(dx, dy);
+    const ux = dx / len;
+    const uy = dy / len;
+    const distToSeg = (px: number, py: number, a: { x: number; y: number }, b: { x: number; y: number }) => {
+      const vx = b.x - a.x;
+      const vy = b.y - a.y;
+      const t = Phaser.Math.Clamp(((px - a.x) * vx + (py - a.y) * vy) / (vx * vx + vy * vy), 0, 1);
+      return Phaser.Math.Distance.Between(px, py, a.x + vx * t, a.y + vy * t);
+    };
+    const kinds = [
+      { key: "wide_rock_formation_1", scale: [0.5, 0.72] },
+      { key: "tall_rock_formation_1", scale: [0.42, 0.58] },
+    ] as const;
+    for (let i = 0; i < count; i++) {
+      for (let attempt = 0; attempt < 12; attempt++) {
+        const t = 0.1 + (0.72 * (i + rng() * 0.6)) / count;
+        const side = i % 2 === 0 ? 1 : -1;
+        const off = rand(250, 360) * side;
+        const x = spawn.x + ux * len * t - uy * off;
+        const y = spawn.y + uy * len * t + ux * off;
+        const kind = kinds[(i + attempt) % kinds.length];
+        const scale = rand(kind.scale[0], kind.scale[1]);
+        const tex = this.textures.get(kind.key).getSourceImage() as HTMLImageElement;
+        const w = tex.width * scale;
+        const r = w / 2;
+        if (x < r + 80 || x > world.width - r - 80 || y < 220 || y > world.height - 100) continue;
+        if (Phaser.Math.Distance.Between(x, y, spawn.x, spawn.y) < 360 + r) continue;
+        if (softSoil && Phaser.Math.Distance.Between(x, y, softSoil.x, softSoil.y) < softSoil.outerRadius + 160 + r) continue;
+        if (cp && Phaser.Math.Distance.Between(x, y, cp.x, cp.y) < 300 + r) continue;
+        if (cp && distToSeg(x, y, target, cp) < 160 + r) continue;
+        if (this.craterZones.some((c) => c.solid && Phaser.Math.Distance.Between(x, y, c.x, c.y) < c.r + r + 50)) continue;
+        const img = this.add.image(x, y, kind.key).setOrigin(0.5, 0.97).setScale(scale).setFlipX(rng() > 0.5).setDepth(y);
+        this.add.image(x, y - 4, "soft_shadow").setDisplaySize(w * 0.95, w * 0.22).setAlpha(0.45).setDepth(y - 1);
+        group.add(this.add.zone(x, y - img.displayHeight * 0.1, w * 0.8, img.displayHeight * 0.2));
+        break;
+      }
+    }
   }
 
   /**

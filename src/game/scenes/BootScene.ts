@@ -31,6 +31,9 @@ export class BootScene extends Phaser.Scene {
     this.load.once(Phaser.Loader.Events.COMPLETE, () => this.children.removeAll(true));
 
     this.load.image("flat_1", "/assets/terrain/flat_tile_1.png");
+    // Ground variety (Nov 15): the other flat tiles and the rocky tiles, blended into the ground.
+    for (const i of [2, 3, 4]) this.load.image(`flat_${i}`, `/assets/terrain/flat_tile_${i}.png`);
+    for (const i of [1, 2, 3, 4]) this.load.image(`rocky_${i}`, `/assets/terrain/rocky_tile_${i}.png`);
     for (const d of ["N", "NE", "E", "SE", "S", "SW", "W", "NW"]) {
       this.load.image(`player_${d}`, `/assets/rovers/player/player_${d}.png`);
       // Wheel-spin overlays (scripts/make-wheel-spin.mjs), composited into spritesheets in create().

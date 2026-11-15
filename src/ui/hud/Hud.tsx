@@ -3,6 +3,7 @@
 import { actions, POWER_TOOL_ID, TRACTION_TOOL_ID } from "@/game/state/runStore";
 import { TUNING } from "@/game/tuning";
 import { LEGS } from "@/game/legs";
+import { getRover } from "@/content";
 import { useRun } from "../useRun";
 import { SOLAR_LABEL, TOOL_SHORT } from "../labels";
 import { BatteryBar } from "./BatteryBar";
@@ -34,6 +35,8 @@ export function Hud() {
     return id && s.unlockedTools.includes(id) && s.encounterStep !== "complete" && !s.roverOffline ? id : null;
   });
   const toolEngaged = useRun((s) => s.toolEngaged);
+  // The rover's archive was opened but Continue not pressed yet: the run waits on it.
+  const awaitingContinue = useRun((s) => (actions.canContinue(s) && s.activeEncounterRover ? getRover(s.activeEncounterRover).name : null));
   const canQuickCharge = useRun((s) => actions.canQuickCharge(s));
   const showQuickCharge = useRun((s) => s.batteryChargePercent < 80 || s.severeStorm);
   // Opportunity's storm: no quick charge, then no coins, damaged panels, and finally no power.
@@ -129,6 +132,29 @@ export function Hud() {
             className="whitespace-nowrap rounded border border-ui-cyan bg-ui-cyan/15 px-3 py-1 font-mono text-[13px] tracking-widest text-ui-cyan hover:bg-ui-cyan/25 focus-visible:outline-2 focus-visible:outline-ui-cyan"
           >
             JUMP ▸
+          </button>
+        </div>
+      )}
+
+      {/* Waiting on Continue (the Hub was closed with ✕ before pressing it): say so clearly and
+          offer the button right here, so the run never looks stuck. */}
+      {awaitingContinue && (
+        <div
+          data-hud-avoid
+          role="status"
+          className="pointer-events-auto absolute bottom-24 left-1/2 flex -translate-x-1/2 animate-[fadein_0.4s_ease-out] items-center gap-4 rounded-md border-2 border-ui-amber bg-ui-background/95 py-2.5 pl-5 pr-3 text-[16px] shadow-[0_0_26px_rgba(241,170,97,0.45)]"
+        >
+          <span>
+            <strong className="text-ui-amber">{awaitingContinue}&apos;s archive is unlocked.</strong> Press{" "}
+            <strong className="text-ui-amber">CONTINUE</strong> to carry on the mission
+            <span className="text-ui-muted"> (or T to reopen the Rover Hub)</span>
+          </span>
+          <button
+            type="button"
+            onClick={() => actions.continueEncounter()}
+            className="whitespace-nowrap rounded bg-ui-amber px-4 py-1.5 font-mono text-[14px] font-bold tracking-widest text-[#1a0d04] shadow-[0_0_16px_rgba(241,170,97,0.7)] animate-[hub-ping-amber_1.4s_ease-out_infinite] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-amber"
+          >
+            ▶ CONTINUE
           </button>
         </div>
       )}

@@ -35,6 +35,12 @@ export interface LegConfig {
   checkpoint: { x: number; y: number } | null;
   /** Extra rocky terrain: big rock formations + tight boulder clusters (all solid). */
   rockFormations?: { formations: number; clusters: number };
+  /**
+   * Ground dressing (Nov 15): rocky fields (a soft patch of rocky ground packed with stone
+   * clusters, plus a few solid boulders), groups of small craters, and rows of rock formations
+   * lining the drive toward the rover (Spirit).
+   */
+  terrain: { fields: number; fieldBoulders: number; craterClusters: number; routeFormations: number };
   /** Where the real rover rests on Mars (degrees; N and E positive), for the jump map. */
   site: { lat: number; lon: number };
 }
@@ -55,7 +61,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     checkpoint: { x: 1700, y: 1540 }, // ~1,150 px from Sojourner: a real drive to the jump point
     site: { lat: 19.13, lon: -33.22 }, // Mars Pathfinder landing site
     // Ares Vallis is a boulder-strewn flood plain: more clustered rock than the other regions.
-    rockFormations: { formations: 7, clusters: 12 },
+    rockFormations: { formations: 7, clusters: 20 },
+    terrain: { fields: 15, fieldBoulders: 3, craterClusters: 3, routeFormations: 0 },
   },
   spirit: {
     rover: "spirit",
@@ -71,6 +78,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     next: "opportunity",
     checkpoint: { x: 2480, y: 1780 }, // ~1,100 px beyond the soft-soil edge
     site: { lat: -14.57, lon: 175.47 }, // Spirit, Gusev Crater (Columbia Hills)
+    // Formations flank the drive toward Spirit, hinting at the way.
+    terrain: { fields: 6, fieldBoulders: 1, craterClusters: 1, routeFormations: 12 },
   },
   opportunity: {
     rover: "opportunity",
@@ -86,6 +95,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     next: null,
     checkpoint: { x: 1000, y: 1560 }, // ~1,800 px from Opportunity: the storm hits about halfway
     site: { lat: -2.28, lon: -5.42 }, // Opportunity, Perseverance Valley
+    // Meridiani is smoother: a few small rocky patches and pockmarks of little craters.
+    terrain: { fields: 4, fieldBoulders: 0, craterClusters: 3, routeFormations: 0 },
   },
 };
 

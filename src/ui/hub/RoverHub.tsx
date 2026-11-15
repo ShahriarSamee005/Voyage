@@ -310,7 +310,7 @@ function CollapseButton({ side, onClick }: { side: "left" | "right"; onClick: ()
 }
 
 // ---------------------------------------------------------------------------------------------
-// Top bar: burger rover menu · logo · link · mission data · continue · close
+// Top bar: burger rover menu · logo · link · continue · close
 
 function TopBar({ subject, current }: { subject: HubSubject; current: HubId }) {
   const [menuOpen, setMenuOpen] = useState(false);
@@ -402,18 +402,17 @@ function TopBar({ subject, current }: { subject: HubSubject; current: HubId }) {
             <span className="truncate font-display text-[19px] font-bold tracking-[0.14em] text-[#e9f6fb]">{subject.link}</span>
           </div>
 
-          {/* mission data */}
-          <div className="hidden shrink-0 font-mono text-[14px] tracking-[0.2em] text-ui-text/85 xl:block">
-            MISSION DATA <span className="text-ui-cyan/60">{"//"}</span> MARS <span className="text-ui-cyan/60">{"//"}</span> {subject.years}
-          </div>
-
+          {/* Continue: the one thing the run is waiting for, so it's the loudest button here. */}
           {canContinue && (
             <button
               type="button"
               onClick={actions.continueEncounter}
-              className="shrink-0 animate-[hub-ping_1.6s_ease-out_infinite] rounded border border-ui-amber bg-ui-amber/20 px-4 py-2 font-mono text-[14px] tracking-widest text-ui-amber hover:bg-ui-amber/30 focus-visible:outline-2 focus-visible:outline-ui-amber"
+              data-autofocus=""
+              aria-label="Continue the mission"
+              className="flex h-11 shrink-0 animate-[hub-ping-amber_1.4s_ease-out_infinite] items-center gap-2 rounded-md bg-ui-amber px-6 font-display text-[17px] font-black tracking-[0.18em] text-[#1a0d04] transition hover:scale-[1.04] hover:brightness-110 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ui-amber"
             >
-              ▶ CONTINUE
+              <IconTriangle size={16} dir="right" />
+              CONTINUE MISSION
             </button>
           )}
 
