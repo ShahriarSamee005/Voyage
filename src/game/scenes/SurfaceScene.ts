@@ -6,6 +6,7 @@ import type { EncounterStep, RunState, SolarCondition, TractionStatus } from "..
 import { stepPower } from "../systems/power";
 import { GAME_HEIGHT, GAME_WIDTH } from "../config";
 import { wheelSpinAnim, wheelSpinTexture } from "../art";
+import { audio } from "../audio/engine";
 
 // Mars surface — one scene, rebuilt per leg from LEGS (Sojourner → Spirit → Opportunity).
 // Encounter logic lives in runStore actions; this scene handles the world, input and timing.
@@ -155,8 +156,19 @@ export class SurfaceScene extends Phaser.Scene {
   private wasPaused = false;
   private stationarySeconds = 0;
   private coreSeconds = 0;
-  private survivalSeconds = 0;
-  private wasSevere = false;
+  // Opportunity's storm shutdown (team decision, Nov 15): seconds of play since the storm hit,
+  // which scripted beats have run, and how long the rover has sat dead.
+  private stormSeconds = 0;
+  /** Opportunity: distance to the final checkpoint when the drive began, and time spent driving. */
+  private checkpointStartDist = 0;
+  private checkpointSeconds = 0;
+  private coinsSpent = false;
+  private offlineSeconds = 0;
+  private signalSent = false;
+  private sparkClock = 0;
+  private deadClick = 0;
+  private sparks!: Phaser.GameObjects.Particles.ParticleEmitter;
+  private powerDim!: Phaser.GameObjects.Rectangle;
   private facing: Dir = "N";
   private cinematicPan = false;
   /** Set by E's key-down event, consumed once by the next world update. */
@@ -189,8 +201,14 @@ export class SurfaceScene extends Phaser.Scene {
     this.runId = s.runId;
     this.stationarySeconds = 0;
     this.coreSeconds = 0;
-    this.survivalSeconds = 0;
-    this.wasSevere = false;
+    this.stormSeconds = 0;
+    this.checkpointStartDist = 0;
+    this.checkpointSeconds = 0;
+    this.coinsSpent = false;
+    this.offlineSeconds = 0;
+    this.signalSent = false;
+    this.sparkClock = 0;
+    this.deadClick = 0;
     this.wasPaused = false;
     this.cinematicPan = false;
     this.facing = "N";
@@ -243,6 +261,21 @@ export class SurfaceScene extends Phaser.Scene {
       this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, this.leg.tint.color, this.leg.tint.alpha).setOrigin(0).setScrollFactor(0).setDepth(9000);
     }
     this.buildWeatherLayer();
+    // Storm damage: sparks off the solar panels, and the world dimming as the rover's power dies.
+    this.sparks = this.add
+      .particles(0, 0, "dust_px", {
+        speed: { min: 60, max: 220 },
+        angle: { min: 200, max: 340 },
+        gravityY: 380,
+        lifespan: { min: 250, max: 600 },
+        alpha: { start: 1, end: 0 },
+        scale: { min: 0.5, max: 1.1 },
+        tint: [0xfff6c8, 0xffd36b, 0xffffff, 0xff9a3c],
+        blendMode: Phaser.BlendModes.ADD,
+        frequency: -1,
+      })
+      .setDepth(10_001);
+    this.powerDim = this.add.rectangle(0, 0, GAME_WIDTH, GAME_HEIGHT, 0x05030a, 0).setOrigin(0).setScrollFactor(0).setDepth(9400);
     this.edgeArrow = this.add.graphics().setScrollFactor(0).setDepth(9500);
 
     const cam = this.cameras.main;
@@ -390,7 +423,7 @@ export class SurfaceScene extends Phaser.Scene {
     const lamp = this.add.circle(cp.x + 94, cp.y - 78, 4, 0x68d7e9).setDepth(cp.y).setAlpha(0.4);
     const beam = this.add.image(cp.x, cp.y + 6, "jump_beam").setOrigin(0.5, 1).setDisplaySize(90, 300).setAlpha(0).setBlendMode(Phaser.BlendModes.ADD).setDepth(cp.y + 1);
     const label = this.add
-      .text(cp.x, cp.y - 112, "JUMP POINT", { fontFamily: "monospace", fontSize: "15px", color: "#9fe8f4", stroke: "#06101d", strokeThickness: 4 })
+      .text(cp.x, cp.y - 112, this.leg.next ? "JUMP POINT" : "CHECKPOINT", { fontFamily: "monospace", fontSize: "15px", color: "#9fe8f4", stroke: "#06101d", strokeThickness: 4 })
       .setOrigin(0.5)
       .setLetterSpacing(3)
       .setAlpha(0)
@@ -708,16 +741,9 @@ export class SurfaceScene extends Phaser.Scene {
 
   /** Pick the target look for the solar condition that drives charging (design.md §2.5). */
   private applyWeather(s: RunState) {
-    const severe = s.severeStorm;
-    const passing = severe && s.toolEngaged ? this.survivalSeconds / TUNING.survivalSecondsToPass : 0;
-    if (severe) {
-      // The storm hits after Continue — and eases off as survival mode rides it out.
-      const a = WEATHER.severe;
-      const b = WEATHER.dust_storm;
-      const t = passing * 0.6;
-      this.weatherTarget = Object.fromEntries(
-        (Object.keys(a) as (keyof WeatherLook)[]).map((k) => [k, Phaser.Math.Linear(a[k], b[k], t)]),
-      ) as unknown as WeatherLook;
+    if (s.severeStorm) {
+      // The storm hits after Continue, and it never lets up.
+      this.weatherTarget = WEATHER.severe;
     } else {
       this.weatherTarget = WEATHER[s.solarCondition];
     }
@@ -811,6 +837,12 @@ export class SurfaceScene extends Phaser.Scene {
       iy *= Math.SQRT1_2;
     }
 
+    // ---- Opportunity: the storm hits after Continue, and the rover doesn't make it ----
+    if (s.severeStorm) {
+      this.updateStorm(s, dt, throttle);
+      return;
+    }
+
     const px = this.player.x;
     const py = this.player.y;
     let step: EncounterStep = s.encounterStep;
@@ -845,11 +877,6 @@ export class SurfaceScene extends Phaser.Scene {
       if (!inCore) this.coreSeconds = 0;
     }
 
-    // ---- Opportunity: the storm hits after Continue ----
-    const severe = s.severeStorm;
-    if (severe && !this.wasSevere) this.survivalSeconds = 0; // each storm starts its own survival timer
-    this.wasSevere = severe;
-    if (severe) speedFactor = 0; // driving is unsafe until the storm passes
     if (s.outOfPower) speedFactor = 0;
 
     // ---- movement + soft boundary redirect ----
@@ -869,13 +896,13 @@ export class SurfaceScene extends Phaser.Scene {
     const moving = Math.abs(vx) + Math.abs(vy) > 1;
     // Stuck means stuck: a rover that can't drive (soft soil, out of power, storm) can't turn
     // either — the wheels just spin in place (fix E3).
-    if (throttle && !severe && speedFactor > 0) this.setFacing(ix, iy);
+    if (throttle && speedFactor > 0) this.setFacing(ix, iy);
     this.player.setDepth(py);
     this.updateTracks(dt, inSoil);
     this.toolRing.setPosition(px, py - 4).setVisible(s.toolEngaged).setDepth(py - 1);
 
     // ---- power ----
-    const spinning = throttle && !severe; // wheels spin (and cost power) even when stuck
+    const spinning = throttle; // wheels spin (and cost power) even when stuck
     this.spinWheels(spinning && !s.outOfPower);
     // Stuck and spinning: the wheels dig in and throw up bright, pale subsurface soil (fix E2).
     if (spinning && !s.outOfPower && traction === "stuck") {
@@ -890,7 +917,6 @@ export class SurfaceScene extends Phaser.Scene {
       outOfPower: s.outOfPower,
       dtSeconds: dt,
       driveDrainFactor: s.solarCondition === "dust_storm" ? TUNING.stormDriveDrainFactor : 1,
-      loadPerSecond: severe && !s.toolEngaged ? TUNING.severeStormLoadPerSecond : 0,
     });
 
     // ---- encounter progression ----
@@ -924,26 +950,24 @@ export class SurfaceScene extends Phaser.Scene {
         actions.beginDiscovery(leg.rover);
         return;
       }
-      const legTool = leg.rover === "spirit" ? TRACTION_TOOL_ID : leg.rover === "opportunity" ? POWER_TOOL_ID : null;
-      if (legTool && s.unlockedTools.includes(legTool) && (legTool === TRACTION_TOOL_ID || severe)) {
+      // Power preservation is handled by the storm update; only traction mode toggles here.
+      if (leg.rover === "spirit" && s.unlockedTools.includes(TRACTION_TOOL_ID)) {
         toolEngaged = !toolEngaged;
-        toast =
-          legTool === TRACTION_TOOL_ID
-            ? toolEngaged
-              ? "Traction mode engaged"
-              : "Traction mode off"
-            : toolEngaged
-              ? "Survival mode: power preservation on — hold still"
-              : "Power preservation off";
+        toast = toolEngaged ? "Traction mode engaged" : "Traction mode off";
       }
     }
 
-    // Survival mode: hold still long enough and the storm passes.
-    if (severe && toolEngaged) {
-      this.survivalSeconds += dt;
-      if (this.survivalSeconds >= TUNING.survivalSecondsToPass) {
-        runStore.set({ batteryChargePercent: power.battery, outOfPower: power.outOfPower, isCharging: false });
-        actions.stormPassed();
+    // Opportunity: on the way to the final checkpoint, the storm hits (team decision, Nov 15) —
+    // once the rover has covered part of the drive, or after a while if the player wanders.
+    if (!leg.next && cp && step === "complete" && !s.severeStorm) {
+      const d = Phaser.Math.Distance.Between(px, py, cp.x, cp.y);
+      if (!this.checkpointStartDist) this.checkpointStartDist = d;
+      this.checkpointSeconds += dt;
+      if (d <= this.checkpointStartDist * (1 - TUNING.stormTriggerProgress) || this.checkpointSeconds >= TUNING.stormTriggerSeconds) {
+        this.player.setVelocity(0, 0);
+        this.cameras.main.shake(600, 0.006);
+        runStore.set({ batteryChargePercent: power.battery, isRoverMoving: false, canJump: false, warning: null });
+        actions.stormHits();
         return;
       }
     }
@@ -958,7 +982,7 @@ export class SurfaceScene extends Phaser.Scene {
     // ---- guidance ----
     let target: { x: number; y: number } | null = null;
     if (step === "approach" || step === "hazard") target = leg.target;
-    else if (step === "complete" && cp && leg.next) target = cp; // head for the jump point
+    else if (step === "complete" && cp) target = cp; // head for the jump point (or the final checkpoint)
     else if (step === "tool_unlocked" && leg.softSoil) {
       const a = Math.atan2(py - leg.softSoil.y, px - leg.softSoil.x);
       const r = leg.softSoil.outerRadius + 60;
@@ -974,16 +998,12 @@ export class SurfaceScene extends Phaser.Scene {
 
     // ---- warnings (highest priority first) ----
     let warning: string | null = null;
-    if (severe) {
-      warning = toolEngaged
-        ? `SURVIVAL MODE — STORM PASSING (${Math.max(1, Math.ceil(TUNING.survivalSecondsToPass - this.survivalSeconds))}s)`
-        : "SEVERE DUST STORM — DRIVING UNSAFE · PRESS E";
-    } else if (boundaryWarning) warning = "EDGE OF MISSION ZONE — TURNING BACK";
-    else if (power.outOfPower) warning = "OUT OF POWER — STAY STILL TO RECHARGE";
+    if (boundaryWarning) warning = "EDGE OF MISSION ZONE · TURNING BACK";
+    else if (power.outOfPower) warning = "OUT OF POWER · STAY STILL TO RECHARGE";
     else if (traction === "stuck") warning = "STUCK IN SOFT SOIL";
     else if (inSoil && !s.toolEngaged) warning = "SOFT SOIL";
     else if (power.battery < TUNING.lowBatteryWarning) warning = "LOW POWER";
-    else if (s.solarCondition === "dust_storm") warning = "DUST STORM — SLOW CHARGING";
+    else if (s.solarCondition === "dust_storm") warning = "DUST STORM · SLOW CHARGING";
 
     runStore.set({
       batteryChargePercent: power.battery,
@@ -1001,6 +1021,150 @@ export class SurfaceScene extends Phaser.Scene {
     });
 
     this.drawEdgeArrow(target);
+  }
+
+  /**
+   * Opportunity's storm (team decisions Nov 14–15): driving is unsafe, and like Opportunity in
+   * 2018 our rover doesn't make it. Its last coins go on an emergency charge, a gust damages the
+   * solar panels, the battery drains to 0% and the rover shuts down. It then sits dark and won't
+   * respond to the controls for a few seconds before the "Signal lost" message leads to the ending.
+   * Power preservation slows the drain but can't stop it.
+   */
+  private updateStorm(s: RunState, dt: number, throttle: boolean) {
+    const px = this.player.x;
+    const py = this.player.y;
+    this.player.setVelocity(0, 0);
+    this.spinWheels(false);
+    this.player.setDepth(py);
+    this.updateTracks(dt, false);
+    this.edgeArrow.clear();
+    const ePressed = this.ePressQueued;
+    this.ePressQueued = false;
+
+    if (s.roverOffline) {
+      // Dead: the controls do nothing but a dull relay click, and the panels still spit sparks.
+      this.toolRing.setVisible(false);
+      this.offlineSeconds += dt;
+      this.deadClick -= dt;
+      if (throttle && this.deadClick <= 0) {
+        audio.sfx("noPower");
+        this.deadClick = 0.9;
+      }
+      this.sparkClock -= dt;
+      if (this.sparkClock <= 0 && this.offlineSeconds < 2.5) {
+        this.sparks.emitParticleAt(px + Phaser.Math.Between(-18, 18), py - 46, Phaser.Math.Between(2, 5));
+        this.sparkClock = Phaser.Math.FloatBetween(0.5, 1.1);
+      }
+      if (!this.signalSent && this.offlineSeconds >= TUNING.stormSignalLostDelay) {
+        this.signalSent = true;
+        actions.signalLost();
+      }
+      return;
+    }
+
+    this.stormSeconds += dt;
+    const t = this.stormSeconds;
+    let toolEngaged = s.toolEngaged;
+    let toast = s.toast;
+    if (ePressed && s.unlockedTools.includes(POWER_TOOL_ID)) {
+      toolEngaged = !toolEngaged;
+      toast = toolEngaged ? "Power preservation on: non-essential systems off" : "Power preservation off";
+    }
+    this.toolRing.setPosition(px, py - 4).setVisible(toolEngaged).setDepth(py - 1);
+
+    // No sunlight gets through: the battery only drains (slower with power preservation). Once
+    // the panels are damaged the drain speeds up if needed, so the end comes by stormShutdownBy.
+    let rate: number = toolEngaged ? TUNING.stormDrainPreservedPerSecond : TUNING.stormDrainPerSecond;
+    if (s.panelDamaged) rate = Math.max(rate, s.batteryChargePercent / Math.max(0.5, TUNING.stormShutdownBy - t));
+    const battery = Math.max(0, s.batteryChargePercent - rate * dt);
+
+    // Damaged panels crackle now and then.
+    if (s.panelDamaged) {
+      this.sparkClock -= dt;
+      if (this.sparkClock <= 0) {
+        this.sparks.emitParticleAt(px + Phaser.Math.Between(-18, 18), py - 46, Phaser.Math.Between(3, 7));
+        this.sparkClock = Phaser.Math.FloatBetween(0.7, 1.6);
+      }
+    }
+
+    if (!this.coinsSpent && t >= TUNING.stormEmergencyChargeAt) {
+      this.coinsSpent = true;
+      runStore.set({ toolEngaged });
+      actions.emergencyCharge(battery);
+      return;
+    }
+    if (!s.panelDamaged && t >= TUNING.stormPanelDamageAt) {
+      runStore.set({ batteryChargePercent: battery, toolEngaged });
+      actions.damagePanels();
+      this.panelHit();
+      return;
+    }
+    if (s.panelDamaged && battery <= 0) {
+      actions.shutDownRover();
+      this.powerDown();
+      return;
+    }
+
+    const warning = s.panelDamaged
+      ? "SOLAR PANELS DAMAGED · CANNOT RECHARGE"
+      : toolEngaged
+        ? "SEVERE DUST STORM · POWER PRESERVATION ON"
+        : "SEVERE DUST STORM · DRIVING UNSAFE · PRESS E";
+    runStore.set({
+      batteryChargePercent: battery,
+      isCharging: false,
+      outOfPower: battery <= 0,
+      isRoverMoving: false,
+      tractionStatus: "normal",
+      canScan: false,
+      canJump: false,
+      objective: { ...s.objective, angle: null, distance: null },
+      warning,
+      toast,
+      toolEngaged,
+    });
+  }
+
+  /** A gust tears into the solar panels: shake, a hot flash, a burst of sparks, a flickering rover. */
+  private panelHit() {
+    const cam = this.cameras.main;
+    cam.shake(700, 0.012);
+    cam.flash(260, 255, 196, 120);
+    this.sparks.emitParticleAt(this.player.x, this.player.y - 46, 40);
+    this.sparkClock = 0.6;
+    let n = 0;
+    this.time.addEvent({
+      delay: 90,
+      repeat: 7,
+      callback: () => (n++ % 2 ? this.player.clearTint() : this.player.setTint(0xff8a5c)),
+    });
+    this.time.delayedCall(800, () => this.player.clearTint());
+  }
+
+  /** Battery empty: the rover's power dies — two last flickers, then it goes dark. */
+  private powerDown() {
+    this.toolRing.setVisible(false);
+    this.offlineSeconds = 0;
+    this.sparkClock = 0.3;
+    const dark = 0x4a4656;
+    this.player.setTint(dark);
+    this.time.delayedCall(180, () => this.player.clearTint());
+    this.time.delayedCall(330, () => this.player.setTint(dark));
+    this.time.delayedCall(560, () => this.player.clearTint());
+    this.time.delayedCall(700, () => {
+      this.tweens.addCounter({
+        from: 255,
+        to: 80,
+        duration: 1600,
+        ease: "Sine.easeIn",
+        onUpdate: (tw) => {
+          const v = Math.round(tw.getValue() ?? 80);
+          this.player.setTint(Phaser.Display.Color.GetColor(v, v, Math.min(255, Math.round(v * 1.12))));
+        },
+      });
+    });
+    this.tweens.add({ targets: this.powerDim, fillAlpha: 0.28, duration: 2600, delay: 400 });
+    this.cameras.main.zoomTo(1.18, 3200, "Sine.easeInOut");
   }
 
   private setFacing(ix: number, iy: number) {

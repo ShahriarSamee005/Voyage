@@ -22,6 +22,7 @@ function musicFor(s: RunState): MusicState {
     case "ending":
       return "ending";
     case "surface":
+      if (s.roverOffline) return "ending"; // the rover has died in the storm; the ending music carries on
       if (s.mode === "cinematic" || (s.hubOpen && s.encounterStep === "discovered")) return "discovery";
       if (s.severeStorm || s.encounterStep === "hazard") return "hazard";
       return "mars";
@@ -56,7 +57,9 @@ export function startAudioDirector(): () => void {
     if (s.unlockedTools.length > prev.unlockedTools.length) audio.sfx("unlock");
     if (s.mode === "cinematic" && prev.mode !== "cinematic" && s.stage === "surface") audio.sfx("discovery");
     if (s.mode === "travel" && prev.mode !== "travel") audio.sfx("travel");
-    if (prev.severeStorm && !s.severeStorm) audio.sfx("stormPass");
+    if (prev.severeStorm && !s.severeStorm && s.stage === "surface") audio.sfx("stormPass");
+    if (s.panelDamaged && !prev.panelDamaged) audio.sfx("panelDamage");
+    if (s.roverOffline && !prev.roverOffline) audio.sfx("powerDown");
     if ((s.rocketLock ?? 0) >= 100 && (prev.rocketLock ?? 0) < 100) audio.sfx("lock");
     if (s.stage === "surface" && s.batteryChargePercent < TUNING.lowBatteryWarning && prev.batteryChargePercent >= TUNING.lowBatteryWarning) {
       audio.sfx("lowPower");

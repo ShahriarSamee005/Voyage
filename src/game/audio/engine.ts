@@ -31,6 +31,9 @@ export type Sfx =
   | "unlock"
   | "travel"
   | "stormPass"
+  | "panelDamage"
+  | "powerDown"
+  | "noPower"
   | "lock"
   | "chargeStart";
 
@@ -351,6 +354,21 @@ class AudioEngine {
         break;
       case "stormPass":
         [392, 523, 659, 784].forEach((f, i) => tone(f, t + i * 0.2, 1.8, "sine", 0.1));
+        break;
+      case "panelDamage":
+        // Gust impact, then crackling electrical sparks and a sagging hum.
+        noiseBurst(t, 0.7, 2600, 0.5);
+        [0.05, 0.13, 0.19, 0.31, 0.42, 0.55].forEach((d, i) => tone(1500 + i * 230, t + d, 0.05, "square", 0.05));
+        tone(320, t + 0.1, 0.9, "sawtooth", 0.07, 90);
+        break;
+      case "powerDown":
+        // A long falling whine as the rover's systems die.
+        tone(620, t, 2.2, "sawtooth", 0.08, 40);
+        tone(310, t + 0.05, 2.4, "sine", 0.1, 30);
+        break;
+      case "noPower":
+        // A dull relay click: the controls do nothing.
+        tone(95, t, 0.1, "square", 0.07);
         break;
       case "lock":
         [587, 740, 880, 1175].forEach((f, i) => tone(f, t + i * 0.1, 0.9, "triangle", 0.1));

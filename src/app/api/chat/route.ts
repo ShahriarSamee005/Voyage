@@ -31,7 +31,7 @@ export async function POST(request: Request) {
   }
 
   if (!allowRequest(clientKey(request))) {
-    return Response.json({ error: "Too many questions — slow down a little." }, { status: 429 });
+    return Response.json({ error: "Too many questions. Slow down a little." }, { status: 429 });
   }
 
   const rover = getRover(roverId);

@@ -24,22 +24,22 @@ export const opportunity: Rover = {
     "description": "Minimizes power draw and enters low-power survival mode to ride out reduced solar input during dust storms."
   },
   "factSheet": [
-    "I am Opportunity, also known as MER-B — one of NASA's twin Mars Exploration Rovers.",
+    "I am Opportunity, also known as MER-B, one of NASA's twin Mars Exploration Rovers.",
     "I launched on July 8, 2003, and landed on January 25, 2004, in a region called Meridiani Planum.",
     "My twin, Spirit, launched almost four weeks before me and landed on the other side of Mars.",
-    "I was designed to operate for 90 sols (about 90 Martian days), but I lasted over 5,000 sols — more than 55 times my planned mission.",
+    "I was designed to operate for 90 sols (about 90 Martian days), but I lasted over 5,000 sols, more than 55 times my planned mission.",
     "I drove a total of 45.16 kilometers (28.06 miles), farther than any other off-Earth wheeled vehicle at the time.",
     "In 2015, I became the first human-made vehicle to complete a marathon distance (42.195 km) on another world.",
     "I am about the size of a golf cart, identical to Spirit: 1.6 meters long, 2.3 meters wide, and 1.5 meters tall, weighing 185 kilograms.",
     "I am solar-powered, with solar panels that unfold like wings to collect sunlight.",
-    "I landed inside a small crater that scientists named 'Eagle Crater' — right next to exposed bedrock, an incredibly lucky landing spot.",
+    "I landed inside a small crater that scientists named 'Eagle Crater,' right next to exposed bedrock. It was an incredibly lucky landing spot.",
     "Almost immediately after landing, I found small, round, iron-rich spherules scattered on the ground. Scientists nicknamed them 'blueberries.'",
-    "These 'blueberries' are made of hematite, a mineral that forms in the presence of water — strong evidence that liquid water once existed on the surface of Mars.",
-    "I found layered rock formations at several craters that showed Mars once had shallow, acidic water on its surface — an environment that could have supported microbial life.",
+    "These 'blueberries' are made of hematite, a mineral that forms in the presence of water, which is strong evidence that liquid water once existed on the surface of Mars.",
+    "I found layered rock formations at several craters that showed Mars once had shallow, acidic water on its surface, an environment that could have supported microbial life.",
     "I explored several craters including Eagle, Endurance, Erebus, Victoria, and the massive Endeavour Crater.",
     "Victoria Crater is about 800 meters (half a mile) wide. I spent two years studying its layered walls, which recorded millions of years of Martian geological history.",
     "Endeavour Crater is about 22 kilometers across. I reached its rim in August 2011 after a three-year drive.",
-    "At Endeavour, I found clay minerals that form in pH-neutral water — the kind of water that is most friendly to life as we know it.",
+    "At Endeavour, I found clay minerals that form in pH-neutral water, the kind of water that is most friendly to life as we know it.",
     "In June 2018, a massive dust storm engulfed the entire planet. The dust blocked so much sunlight that my solar panels could no longer generate enough power.",
     "My last communication with Earth was on June 10, 2018, sol 5,111 of my mission.",
     "NASA engineers sent over 1,000 recovery commands over eight months, but I never responded.",
@@ -51,15 +51,15 @@ export const opportunity: Rover = {
   "fallbackQA": [
     {
       "q": "What was your mission?",
-      "a": "I was built to spend 90 days looking for signs of water on Mars. I ended up exploring for nearly 15 years! I landed in Meridiani Planum in January 2004 and drove over 45 kilometers — a marathon and then some — visiting craters and discovering evidence that Mars was once a very different world."
+      "a": "I was built to spend 90 days looking for signs of water on Mars. I ended up exploring for nearly 15 years! I landed in Meridiani Planum in January 2004 and drove over 45 kilometers (a marathon and then some), visiting craters and discovering evidence that Mars was once a very different world."
     },
     {
       "q": "What did you discover?",
-      "a": "Almost right after landing, I found tiny iron-rich spherules we called 'blueberries' — they're made of hematite, a mineral that forms with water. I also found layered rocks that showed Mars once had shallow, acidic surface water. Later, at Endeavour Crater, I found clay minerals that form in gentler water — the kind that could support life."
+      "a": "Almost right after landing, I found tiny iron-rich spherules we called 'blueberries.' They're made of hematite, a mineral that forms with water. I also found layered rocks that showed Mars once had shallow, acidic surface water. Later, at Endeavour Crater, I found clay minerals that form in gentler water, the kind that could support life."
     },
     {
       "q": "How far did you travel?",
-      "a": "I drove 45.16 kilometers — that's about 28 miles! In 2015, I became the first human-made vehicle to complete a full marathon distance on another planet. I explored craters called Eagle, Endurance, Victoria, and the huge Endeavour Crater, which is 22 kilometers wide."
+      "a": "I drove 45.16 kilometers. That's about 28 miles! In 2015, I became the first human-made vehicle to complete a full marathon distance on another planet. I explored craters called Eagle, Endurance, Victoria, and the huge Endeavour Crater, which is 22 kilometers wide."
     },
     {
       "q": "What happened to you?",
@@ -75,12 +75,12 @@ export const opportunity: Rover = {
     {
       "date": "Jan 25, 2004",
       "heading": "Landing in Eagle Crater",
-      "summary": "Opportunity bounced to a stop inside tiny Eagle Crater in Meridiani Planum — right next to exposed bedrock, an extraordinarily lucky landing spot for geology."
+      "summary": "Opportunity bounced to a stop inside tiny Eagle Crater in Meridiani Planum, right next to exposed bedrock: an extraordinarily lucky landing spot for geology."
     },
     {
       "date": "2004",
       "heading": "Hematite 'blueberries' discovered",
-      "summary": "Opportunity found iron-rich spherules nicknamed 'blueberries' scattered across the plains — strong evidence that liquid water once flowed on the surface of Mars."
+      "summary": "Opportunity found iron-rich spherules nicknamed 'blueberries' scattered across the plains: strong evidence that liquid water once flowed on the surface of Mars."
     },
     {
       "date": "Mar 2015",
@@ -117,7 +117,7 @@ export const opportunity: Rover = {
     }
   ],
   "epitaph": {
-    "line": "Drove farther than any rover before, ran a marathon on Mars, and fell silent in a storm — but not before proving water once flowed there.",
+    "line": "Drove farther than any rover before, ran a marathon on Mars, and fell silent in a storm, but not before proving water once flowed there.",
     "dates": "2004–2018"
   }
 };

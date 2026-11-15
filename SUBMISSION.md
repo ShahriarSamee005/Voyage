@@ -28,7 +28,7 @@ Voyage is a 10-minute browser game that turns NASA's abandoned Mars rovers into 
    - **Sojourner (Ares Vallis)** teaches the power lesson: it went silent when its lander, its only link to Earth, most likely ran down its battery in the cold. Your rover runs on sunlight too.
    - **Spirit (Gusev Crater)**: you get stuck in the same soft, loose soil that trapped Spirit at "Troy" in 2009. Its story unlocks the traction mode you need to escape.
    - **Opportunity (Perseverance Valley)**: you arrive in a dust storm. After you find Opportunity, the storm hits you as it hit Opportunity in 2018. You survive by switching to power-preservation mode — something Opportunity never could.
-4. **Rover Hub:** a terminal with each discovered rover's **verified timeline**, **real NASA photo gallery** (with credits), and an **AI chat** where the rover answers in the first person — only from its NASA fact sheet, saying "I don't remember" to anything else.
+4. **Rover Hub:** a three-panel terminal (cards slide in; side panels collapse) with each discovered rover's **real NASA photo gallery** (full-screen viewer, credits), an illustrated **mission story**, NASA's **interactive 3D model** (Spirit and Opportunity), and an **AI chat** where the rover answers in the first person — only from its NASA fact sheet, saying "I don't remember" to anything else.
 5. **Ending + "Data Beamed Home":** your own rover's power fades as it looks at Earth, a tiny dot in the Martian sky. Then a debrief shows one real NASA photo per rover, with dates and a short epitaph.
 
 ### How it addresses the challenge

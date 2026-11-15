@@ -62,7 +62,7 @@ function initialState(runId: number, screen: Screen = "title"): RunState {
     hubOpen: false,
     hubView: "my_rover",
     selectedArchive: null,
-    archiveSection: "story",
+    archiveSection: "gallery",
     pauseOpen: false,
     confirmReturnOpen: false,
     dialogue: null,
@@ -70,6 +70,8 @@ function initialState(runId: number, screen: Screen = "title"): RunState {
     toast: null,
     travel: null,
     severeStorm: false,
+    panelDamaged: false,
+    roverOffline: false,
   };
 }
 
@@ -177,8 +179,8 @@ export const actions = {
     runStore.set({ screen: "data_home", subtitle: null, banner: null });
   },
   /** Rocket mini-game: optional Easter egg reward (non-blocking, PRD §4.1 #3). */
-  awardSighting(label: string) {
-    runStore.set((s) => ({ coins: s.coins + 1, toast: `Spotted ${label}! +1 coin` }));
+  awardSighting(label: string, fact?: string) {
+    runStore.set((s) => ({ coins: s.coins + 1, toast: fact ? `Spotted ${label}! +1 coin\n${fact}` : `Spotted ${label}! +1 coin` }));
   },
 
   // ---- Rover Hub ----
@@ -216,7 +218,7 @@ export const actions = {
         encounterStep: "complete",
         objective: jumpObjective("sojourner"),
         dialogue: legCompleteDialogue("sojourner", "Lesson from Sojourner", [
-          "Sojourner relied on the Pathfinder lander to talk to Earth. In September 1997 the lander fell silent — most likely because its battery ran down and it grew too cold — and Sojourner went quiet too.",
+          "Sojourner relied on the Pathfinder lander to talk to Earth. In September 1997 the lander fell silent, most likely because its battery ran down and it grew too cold, and Sojourner went quiet too.",
           "Your rover runs on sunlight as well. Watch your battery, and stop in the open to let your solar panels recharge before you run low.",
         ]),
       });
@@ -245,7 +247,31 @@ export const actions = {
       return;
     }
 
-    // Opportunity: after Continue, the storm hits the player (team decision, Nov 14).
+    // Opportunity (team decision, Nov 15): Continue gives one last checkpoint to drive to. The
+    // storm hits on the way there (stormHits), and like Opportunity our rover doesn't make it.
+    runStore.set({
+      hubOpen: false,
+      encounterStep: "complete",
+      objective: { text: "Drive to the checkpoint to complete the mission", angle: null, distance: null },
+      dialogue: {
+        speaker: "player_rover",
+        title: "All three explorers found",
+        lines: [
+          "Sojourner, Spirit and Opportunity: all three explorers found. Their stories are saved in your Rover Hub.",
+          "One last drive. Head for the checkpoint to complete the mission.",
+        ],
+        actionLabel: "Head for the checkpoint",
+        action: "dismiss",
+      },
+    });
+  },
+
+  /**
+   * Opportunity: on the way to the final checkpoint, the storm hits (called by the surface scene).
+   * The scene then runs the shutdown: last coins spent, panels damaged, battery to 0%, rover
+   * offline, then the ending.
+   */
+  stormHits() {
     const tool = getRover("opportunity").tool!;
     runStore.set((s) => ({
       hubOpen: false,
@@ -253,14 +279,14 @@ export const actions = {
       severeStorm: true,
       communicationStatus: "searching",
       unlockedTools: addTool(s.unlockedTools, tool.id),
-      objective: { ...s.objective, text: "Engage power preservation [E] and hold still until the storm passes", angle: null },
+      objective: { ...s.objective, text: "Engage power preservation [E] and save every bit of power", angle: null },
       dialogue: {
         speaker: "player_rover",
         title: "The storm hits",
         lines: [
           "In June 2018 a planet-encircling dust storm blocked nearly all the sunlight Opportunity needed. Its solar panels couldn't make enough power, and it never responded again.",
           `${tool.name} unlocked: ${tool.description}`,
-          "The storm is hitting you now. Press E to enter survival mode and hold still until it passes.",
+          "The storm is hitting you now. Driving is unsafe. Press E to switch to power preservation and hold on.",
         ],
         actionLabel: "Brace for the storm",
         action: "dismiss",
@@ -296,37 +322,66 @@ export const actions = {
       rewardedEncounters: firstReward ? [...s.rewardedEncounters, roverId] : s.rewardedEncounters,
       coins: firstReward ? s.coins + TUNING.discoveryReward : s.coins,
       encounterStep: s.activeEncounterRover === roverId ? "discovered" : s.encounterStep,
-      objective: { ...s.objective, text: `Learn from ${name} — then press Continue in the Rover Hub`, angle: null },
+      objective: { ...s.objective, text: `Learn from ${name}, then press Continue in the Rover Hub`, angle: null },
       toast: firstReward ? `+${TUNING.discoveryReward} coins · archive unlocked` : null,
       hubOpen: true,
       hubView: "rover_archives",
       selectedArchive: roverId,
-      archiveSection: "story",
+      archiveSection: "gallery",
     }));
   },
 
-  /** Opportunity: the player held survival mode long enough — the storm passes. */
-  stormPassed() {
-    runStore.set(() => ({
-      severeStorm: false,
+  // ---- Opportunity's storm: the shutdown (the surface scene calls these in order) ----
+
+  /** The rover burns its remaining coins on one last emergency charge. */
+  emergencyCharge(battery: number) {
+    const spent = state.coins;
+    const gain = spent > 0 ? Math.min(TUNING.emergencyChargeMax, spent * TUNING.emergencyChargePerCoin) : 0;
+    runStore.set({
+      coins: 0,
+      batteryChargePercent: Math.min(100, battery + gain),
+      toast: spent > 0 ? `Emergency charge: your last ${spent} coins spent (+${gain}%)` : "No coins left for an emergency charge",
+    });
+  },
+  /** A gust tears into the solar panels: from now on nothing can recharge the battery. */
+  damagePanels() {
+    runStore.set({
+      panelDamaged: true,
+      isCharging: false,
+      objective: { text: "Solar panels damaged. Hold on as long as you can", angle: null, distance: null },
+      toast: "The storm has damaged your solar panels.\nThey can't charge the battery any more.",
+    });
+  },
+  /** Battery at 0% with no way to recharge: the rover powers down and can't move or call home. */
+  shutDownRover() {
+    runStore.set({
+      roverOffline: true,
+      batteryChargePercent: 0,
+      outOfPower: true,
+      isCharging: false,
+      isRoverMoving: false,
       toolEngaged: false,
-      solarCondition: "dusty",
-      communicationStatus: "connected",
-      encounterStep: "complete",
-      objective: { text: "Mission complete", angle: null, distance: null },
+      communicationStatus: "offline",
+      objective: { text: "Rover offline", angle: null, distance: null },
+      warning: "NO POWER · ROVER OFFLINE · CANNOT MOVE",
+      toast: null,
+    });
+  },
+  /** A few seconds after the shutdown: the last message, whose Continue starts the ending. */
+  signalLost() {
+    runStore.set({
       dialogue: {
-        speaker: "player_rover",
-        title: "The storm passed",
+        speaker: "system",
+        title: "Signal lost",
         lines: [
-          "The dust is settling and sunlight is reaching your solar panels again.",
-          "You rode out the storm — something Opportunity never got the chance to do.",
-          "All three explorers found. Their stories are ready to send home.",
+          "Battery 0%. The solar panels are damaged, and there are no coins left for a charge.",
+          "Your rover can't move, and it can't call home.",
+          "Opportunity went silent in a dust storm like this one, in June 2018.",
         ],
         actionLabel: "Continue",
         action: "ending",
       },
-      warning: null,
-    }));
+    });
   },
 
   /** Spirit: drove free of the soft soil with traction mode. */
@@ -389,7 +444,8 @@ export const actions = {
 
   // ---- Coins: optional skip of the solar-charging wait (one validated action, techspec §6.3) ----
   canQuickCharge(s: RunState = state): boolean {
-    return !isWorldPaused(s) && s.coins >= TUNING.quickChargeCost && s.batteryChargePercent < 100;
+    // Not in Opportunity's storm: there the rover spends its coins on its own emergency charge.
+    return !isWorldPaused(s) && !s.severeStorm && s.coins >= TUNING.quickChargeCost && s.batteryChargePercent < 100;
   },
   quickCharge() {
     if (!actions.canQuickCharge()) return;

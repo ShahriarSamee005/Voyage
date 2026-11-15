@@ -126,7 +126,7 @@ export class LandingScene extends Phaser.Scene {
     if (isGone(this)) return;
 
     actions.setSubtitle(null);
-    actions.setBanner({ label: "PRESENT DAY", title: "Ares Vallis — near Sojourner" });
+    actions.setBanner({ label: "PRESENT DAY", title: "Ares Vallis, near Sojourner" });
     await wait(this, 2.4);
     this.cameras.main.fadeOut(600, 0, 0, 0);
     await wait(this, 0.7);

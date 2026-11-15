@@ -160,8 +160,8 @@ function SettingsPanel({ onClose }: { onClose: () => void }) {
 
 function CreditsPanel({ onClose }: { onClose: () => void }) {
   const rows: [string, string][] = [
-    ["Made by", "Team AI'm not sure — NASA Space Apps Challenge 2026"],
-    ["Real NASA images", "NASA/JPL, NASA/JPL-Caltech, Cornell, ASU — via NASA Photojournal, labelled in game"],
+    ["Made by", "Team AI'm not sure · NASA Space Apps Challenge 2026"],
+    ["Real NASA images", "NASA/JPL, NASA/JPL-Caltech, Cornell, ASU (via NASA Photojournal), labelled in game"],
     ["Narration voices", "AI-generated with ElevenLabs (elevenlabs.io)"],
     ["Rover chat", "Google Gemini, answering only from NASA mission facts"],
     ["Art", "Pixel art and screen art are AI-generated; cinematic scenery drawn in code"],
@@ -180,8 +180,8 @@ function CreditsPanel({ onClose }: { onClose: () => void }) {
         ))}
       </dl>
       <p className="mt-5 text-[13px] leading-relaxed text-ui-muted">
-        Your rover, lander and Mission Control are fictional. Sojourner, Spirit and Opportunity — their stories and
-        photos — are real NASA history. Voyage is not affiliated with or endorsed by NASA.
+        Your rover, lander and Mission Control are fictional. Sojourner, Spirit and Opportunity (their stories and
+        photos) are real NASA history. Voyage is not affiliated with or endorsed by NASA.
       </p>
     </Modal>
   );

@@ -29,7 +29,8 @@ export interface LegConfig {
   next: RoverId | null;
   /**
    * Jump point (Phase H): once the leg is complete the player drives here and CHOOSES when to
-   * jump to the next region. Null on the last leg.
+   * jump to the next region. On the last leg it is the final checkpoint the rover never reaches:
+   * the storm hits on the way there (team decision, Nov 15).
    */
   checkpoint: { x: number; y: number } | null;
   /** Extra rocky terrain: big rock formations + tight boulder clusters (all solid). */
@@ -83,7 +84,7 @@ export const LEGS: Record<RoverId, LegConfig> = {
     softSoil: null,
     scanStep: "approach",
     next: null,
-    checkpoint: null,
+    checkpoint: { x: 1000, y: 1560 }, // ~1,800 px from Opportunity: the storm hits about halfway
     site: { lat: -2.28, lon: -5.42 }, // Opportunity, Perseverance Valley
   },
 };

@@ -3,7 +3,7 @@ import type { RoverId, Speaker } from "@/content/types";
 // Runtime state (techspec §5). Not content — reset on every new run, never persisted.
 export type SolarCondition = "clear" | "dusty" | "dust_storm";
 export type HubView = "my_rover" | "rover_archives";
-export type ArchiveSection = "story" | "gallery" | "chat";
+export type ArchiveSection = "story" | "gallery" | "chat" | "model";
 export type TractionStatus = "normal" | "reduced" | "stuck";
 export type CommunicationStatus = "connected" | "searching" | "offline";
 export type GameMode = "explore" | "cinematic" | "travel";
@@ -30,7 +30,8 @@ export interface Banner {
  * Generic encounter steps; each leg uses a subset (team decisions, Nov 14):
  *  Sojourner:   approach → discovered → complete            (teaching leg, no tool)
  *  Spirit:      approach → hazard(stuck) → discovered → tool_unlocked → complete
- *  Opportunity: approach(storm) → discovered → tool_unlocked(storm hits) → complete
+ *  Opportunity: approach(storm) → discovered → complete(drive to the checkpoint)
+ *               → tool_unlocked(the storm hits on the way → shutdown, the run ends)
  */
 export type EncounterStep = "approach" | "hazard" | "discovered" | "tool_unlocked" | "complete";
 
@@ -117,4 +118,8 @@ export interface RunState {
   travel: TravelCard | null;
   /** Opportunity: the storm has hit after Continue and is still raging. */
   severeStorm: boolean;
+  /** Opportunity's storm: a gust has damaged the solar panels, so nothing can recharge the battery. */
+  panelDamaged: boolean;
+  /** Opportunity's storm: the battery hit 0% with no way to recharge, and the rover has shut down. */
+  roverOffline: boolean;
 }

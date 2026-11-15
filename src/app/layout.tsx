@@ -22,7 +22,7 @@ const orbitron = Orbitron({
 export const metadata: Metadata = {
   title: "Voyage",
   description:
-    "A playable story about NASA's abandoned Mars rovers — NASA Space Apps Challenge 2026, team AI'm not sure.",
+    "A playable story about NASA's abandoned Mars rovers. NASA Space Apps Challenge 2026, team AI'm not sure.",
   // AI acknowledgment in page metadata (Space Apps 2026 submission guide); details in CREDITS.md.
   other: {
     "ai-generated-content":

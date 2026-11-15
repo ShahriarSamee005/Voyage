@@ -29,6 +29,74 @@ const PLACEHOLDER_ROCK_WIDTH = 32;
 const PLACEHOLDER_HIT_RADIUS = 20;
 const ASTEROID_SPLIT = 1.2;
 
+// B2 Easter eggs — team art (new_assets/rocket_minigame, trimmed WebP copies in rocket/eggs) and
+// short descriptions. Kept to three that tie into the story (Nov 15). Facts are checked:
+//  - Delta II launched Mars Pathfinder (Dec 1996) — and later Spirit and Opportunity (2003).
+//  - 2001 Mars Odyssey relayed most of Spirit's and Opportunity's data to Earth.
+//  - Phobos, the larger of Mars's two moons, orbits about 6,000 km above the surface.
+interface EasterEgg {
+  key: string;
+  name: string; // shown in the callout box
+  fact: string;
+  at: { seconds?: number; lock?: number };
+  width: number; // on-screen width (px)
+  speed: number; // px/s, right → left
+  spin: number; // rad/s
+}
+const EASTER_EGGS: EasterEgg[] = [
+  {
+    key: "delta2_stage",
+    name: "Spent Delta II upper stage",
+    fact: "A Delta II rocket launched Mars Pathfinder and Sojourner in 1996.",
+    at: { seconds: 6 },
+    width: 62,
+    speed: 150,
+    spin: 0.35,
+  },
+  {
+    key: "mars_odyssey",
+    name: "2001 Mars Odyssey",
+    fact: "This orbiter relayed most of Spirit's and Opportunity's data back to Earth.",
+    at: { lock: 34 },
+    width: 66,
+    speed: 150,
+    spin: 0.15,
+  },
+  {
+    key: "phobos",
+    name: "Phobos",
+    fact: "The larger of Mars's two moons orbits only about 6,000 km above the surface.",
+    at: { lock: 66 },
+    width: 56,
+    speed: 160,
+    spin: 0.1,
+  },
+];
+
+// Eggs and their labels live in the free space beside the trajectory corridor, clear of the HUD
+// (lock panel on top, hints / subtitles at the bottom), one egg on screen at a time.
+const EGG_SAFE_TOP = 108;
+const EGG_SAFE_BOTTOM = 598;
+const EGG_GAP = 26; // breathing room between the corridor edge and an egg or label
+const CORRIDOR_HALF = 70;
+const SCROLL = 320;
+
+interface Callout {
+  target: Phaser.GameObjects.Image;
+  box: Phaser.GameObjects.Container;
+  line: Phaser.GameObjects.Graphics;
+  w: number;
+  h: number;
+  t: number; // seconds since the callout started (negative = not shown yet)
+  hold: number; // seconds the box stays fully visible
+  side: "above" | "below"; // which side of the corridor the egg keeps to
+}
+
+const lerpPt = (a: { x: number; y: number }, b: { x: number; y: number }, t: number) => ({
+  x: a.x + (b.x - a.x) * t,
+  y: a.y + (b.y - a.y) * t,
+});
+
 export class RocketScene extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Image;
   private flame!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -44,7 +112,7 @@ export class RocketScene extends Phaser.Scene {
   private invulnerable = 0;
   hits = 0;
   private done = false;
-  private satTimes = [9, 21];
+  private eggsSpawned = new Set<string>();
 
   constructor() {
     super("Rocket");
@@ -58,7 +126,8 @@ export class RocketScene extends Phaser.Scene {
     this.invulnerable = 0;
     this.hits = 0;
     this.done = false;
-    this.satTimes = [9, 21];
+    this.eggsSpawned = new Set();
+    this.callouts = [];
 
     this.add.rectangle(0, 0, W, H, 0x05091a).setOrigin(0);
     const rng = new Phaser.Math.RandomDataGenerator(["voyage-rocket"]);
@@ -98,6 +167,175 @@ export class RocketScene extends Phaser.Scene {
   }
 
   private saidMidway = false;
+  private callouts: Callout[] = [];
+
+  /**
+   * Easter-egg callout (team sketch): a glowing leader line from the object to a small hexagonal
+   * label box with its name and a short fact. It draws on, holds while the object drifts, then
+   * fades out. Built when the egg spawns (so its size is known for layout), shown a moment later.
+   */
+  private makeCallout(target: Phaser.GameObjects.Image, egg: EasterEgg, side: "above" | "below"): Callout {
+    const name = this.add
+      .text(0, 0, egg.name.toUpperCase(), { fontFamily: "monospace", fontSize: "12px", fontStyle: "bold", color: "#8eeefa" })
+      .setLetterSpacing(1.5);
+    const fact = this.add.text(0, 0, egg.fact, {
+      fontFamily: "system-ui, sans-serif",
+      fontSize: "11px",
+      color: "#e9f1f7",
+      wordWrap: { width: 196 },
+      lineSpacing: 1,
+    });
+    const w = Math.max(name.width, fact.width) + 34;
+    const h = name.height + fact.height + 16;
+    const frame = this.add.graphics();
+    const hex = (inset: number) => [
+      new Phaser.Math.Vector2(inset, h / 2),
+      new Phaser.Math.Vector2(11 + inset, inset),
+      new Phaser.Math.Vector2(w - 11 - inset, inset),
+      new Phaser.Math.Vector2(w - inset, h / 2),
+      new Phaser.Math.Vector2(w - 11 - inset, h - inset),
+      new Phaser.Math.Vector2(11 + inset, h - inset),
+    ];
+    frame.fillStyle(0x071426, 0.92).fillPoints(hex(0), true);
+    frame.lineStyle(5, 0x68d7e9, 0.2).strokePoints(hex(0), true); // glow
+    frame.lineStyle(1.5, 0x8eeefa, 1).strokePoints(hex(0), true);
+    name.setPosition(17, 7);
+    fact.setPosition(17, 8 + name.height + 1);
+    const box = this.add.container(0, 0, [frame, name, fact]).setDepth(6).setAlpha(0);
+    const line = this.add.graphics().setDepth(5);
+    const hold = 3 + egg.fact.length / 40; // long enough to read the fact
+    return { target, box, line, w, h, t: -1, hold, side };
+  }
+
+  /** Corridor centre at screen x (the corridor scrolls left at SCROLL px/s); `ahead` = seconds from now. */
+  private corridorY(x: number, ahead = 0) {
+    return this.centerAt(this.elapsed + ahead + (x - this.rocket.x) / SCROLL);
+  }
+
+  /** Free vertical band beside the corridor across [x0, x1], on one side. */
+  private freeBand(side: "above" | "below", x0: number, x1: number, ahead = 0): [number, number] {
+    let top = EGG_SAFE_TOP;
+    let bottom = EGG_SAFE_BOTTOM;
+    for (let i = 0; i <= 6; i++) {
+      const cy = this.corridorY(x0 + ((x1 - x0) * i) / 6, ahead);
+      if (side === "above") bottom = Math.min(bottom, cy - CORRIDOR_HALF - EGG_GAP);
+      else top = Math.max(top, cy + CORRIDOR_HALF + EGG_GAP);
+    }
+    return [top, bottom];
+  }
+
+  /**
+   * Before an egg spawns: forecast its whole crossing and pick the side of the corridor with the
+   * most room the entire way (so it never has to cross the rocket's path). null = no room yet.
+   */
+  private pickEggSide(egg: EasterEgg, r: number): "above" | "below" | null {
+    let best: "above" | "below" | null = null;
+    let bestRoom = 2 * r + 8;
+    for (const side of ["above", "below"] as const) {
+      let room = Infinity;
+      for (let x = W + 60; x > -80; x -= 60) {
+        const ahead = (W + 60 - x) / egg.speed;
+        const [top, bottom] = this.freeBand(side, x - r, x + r, ahead);
+        room = Math.min(room, bottom - top);
+      }
+      if (room > bestRoom) {
+        best = side;
+        bestRoom = room;
+      }
+    }
+    return best;
+  }
+
+  /** Keep an egg and its label inside the free band on its side of the corridor. */
+  private layoutEgg(c: Callout, dt: number, snap = false) {
+    const egg = c.target;
+    const r = Math.max(egg.displayWidth, egg.displayHeight) * 0.5;
+    const bx = Phaser.Math.Clamp(egg.x + 18, 12, W - c.w - 12);
+    const [top, bottom] = this.freeBand(c.side, Math.min(egg.x - r, bx), Math.max(egg.x + r, bx + c.w));
+    const room = bottom - top;
+    const stacked = room >= 2 * r + 8 + c.h; // label above/below the egg, else beside it
+    let eggY: number;
+    let boxY: number;
+    if (stacked) {
+      const total = 2 * r + 8 + c.h;
+      const start = top + (room - total) / 2;
+      // The label goes on the OUTER side (away from the corridor).
+      if (c.side === "above") {
+        boxY = start;
+        eggY = start + c.h + 8 + r;
+      } else {
+        eggY = start + r;
+        boxY = start + 2 * r + 8;
+      }
+    } else {
+      eggY = (top + bottom) / 2;
+      boxY = eggY - c.h / 2;
+    }
+    eggY = Phaser.Math.Clamp(eggY, EGG_SAFE_TOP + r, EGG_SAFE_BOTTOM - r);
+    egg.y = snap ? eggY : egg.y + (eggY - egg.y) * Math.min(1, dt * 4);
+    const boxX = stacked ? bx : Phaser.Math.Clamp(egg.x + r + 22, 12, W - c.w - 12);
+    const targetBoxY = Phaser.Math.Clamp(boxY, EGG_SAFE_TOP, EGG_SAFE_BOTTOM - c.h);
+    const ease = snap || c.t < 0 ? 1 : Math.min(1, dt * 4);
+    c.box.setPosition(c.box.x + (boxX - c.box.x) * ease, c.box.y + (targetBoxY - c.box.y) * ease);
+    return { stacked, r };
+  }
+
+  private updateCallouts(dt: number) {
+    const DRAW = 0.3; // line draws on
+    const POP = 0.25; // box fades/scales in
+    const OUT = 0.45; // transition out
+    for (let i = this.callouts.length - 1; i >= 0; i--) {
+      const c = this.callouts[i];
+      if (!c.target.active) {
+        c.box.destroy();
+        c.line.destroy();
+        this.callouts.splice(i, 1);
+        continue;
+      }
+      const { stacked, r } = this.layoutEgg(c, dt);
+      if (c.t < 0) {
+        // Shown once the egg is well onto the screen.
+        if (c.target.x < W * 0.76) c.t = 0;
+        else continue;
+      }
+      c.t += dt;
+      const end = DRAW + POP + c.hold + OUT;
+      if (c.t >= end) {
+        c.box.destroy();
+        c.line.destroy();
+        this.callouts.splice(i, 1);
+        continue;
+      }
+      const tx = c.target.x;
+      const ty = c.target.y;
+      const bx = c.box.x;
+      const by = c.box.y;
+      let start: { x: number; y: number };
+      let anchor: { x: number; y: number };
+      if (stacked) {
+        const up = c.side === "above"; // label sits above the egg
+        start = { x: tx + r * 0.3, y: ty + (up ? -r * 0.75 : r * 0.75) };
+        anchor = { x: bx + 22, y: up ? by + c.h : by };
+      } else {
+        start = { x: tx + r * 0.8, y: ty };
+        anchor = { x: bx, y: by + c.h / 2 };
+      }
+
+      const draw = Math.min(1, c.t / DRAW);
+      const fadeOut = c.t > end - OUT ? (end - c.t) / OUT : 1;
+      const pop = Phaser.Math.Clamp((c.t - DRAW) / POP, 0, 1);
+      c.box.setAlpha(pop * fadeOut).setScale(0.92 + 0.08 * pop);
+      const tip = lerpPt(start, anchor, draw);
+      c.line.clear();
+      for (const [width, alpha] of [
+        [5, 0.2],
+        [1.5, 1],
+      ] as const) {
+        c.line.lineStyle(width, 0x8eeefa, alpha * fadeOut).lineBetween(start.x, start.y, tip.x, tip.y);
+      }
+      c.line.fillStyle(0x8eeefa, fadeOut).fillCircle(start.x, start.y, 2.5);
+    }
+  }
 
   /** Speak one space-travel line (voice if recorded, typed subtitle always), then clear it. */
   private async say(index: number) {
@@ -118,7 +356,7 @@ export class RocketScene extends Phaser.Scene {
     if (isWorldPaused(s) || this.done) return;
     const dt = Math.min(deltaMs, 50) / 1000;
     this.elapsed += dt;
-    const scroll = 320;
+    const scroll = SCROLL;
 
     // Parallax stars.
     for (const st of this.starsFar) st.x = st.x - 40 * dt < 0 ? W : st.x - 40 * dt;
@@ -136,7 +374,7 @@ export class RocketScene extends Phaser.Scene {
     this.flame.followOffset.set(-nose.x * TAIL_OFFSET, -nose.y * TAIL_OFFSET);
 
     // Trajectory corridor (drawn ahead of the rocket).
-    const half = 70;
+    const half = CORRIDOR_HALF;
     const g = this.corridor;
     g.clear();
     g.lineStyle(2, 0x68d7e9, 0.75);
@@ -182,27 +420,41 @@ export class RocketScene extends Phaser.Scene {
         this.cameras.main.shake(250, 0.006);
         audio.sfx("hit");
         this.tweens.add({ targets: this.rocket, alpha: 0.35, yoyo: true, repeat: 3, duration: 120 });
-        runStore.set({ toast: "Debris hit — trajectory drifting. Steer back into the corridor!" });
+        runStore.set({ toast: "Debris hit! Trajectory drifting. Steer back into the corridor!" });
         obj.destroy();
       }
     }
 
-    // Optional Easter egg: an old satellite drifts past; fly close to spot it (+1 coin, never required).
-    if (this.satTimes.length && this.elapsed >= this.satTimes[0]) {
-      this.satTimes.shift();
-      const sat = this.add.image(W + 60, Phaser.Math.Between(120, H - 120), "satellite").setScale(1.2).setAlpha(0.85);
-      sat.setData("spotted", false);
-      this.sats.add(sat);
+    // Optional Easter eggs (B2): real objects drift past with a short labelled fact. Never required,
+    // never collide. One at a time, each kept beside (never across) the trajectory corridor.
+    if (this.sats.getLength() === 0) {
+      for (const egg of EASTER_EGGS) {
+        if (this.eggsSpawned.has(egg.key)) continue;
+        const due = egg.at.seconds !== undefined ? this.elapsed >= egg.at.seconds : this.lock >= (egg.at.lock ?? 101);
+        if (!due) break; // keep their order
+        const img = this.add.image(W + 60, H / 2, egg.key);
+        img.setScale(egg.width / img.width);
+        const side = this.pickEggSide(egg, Math.max(img.displayWidth, img.displayHeight) * 0.5);
+        if (!side) {
+          img.destroy(); // no clear lane right now — try again next frame
+          break;
+        }
+        this.eggsSpawned.add(egg.key);
+        img.setData("egg", egg);
+        this.sats.add(img);
+        const c = this.makeCallout(img, egg, side);
+        this.layoutEgg(c, dt, true);
+        this.callouts.push(c);
+        break;
+      }
     }
     for (const sat of [...this.sats.getChildren()] as Phaser.GameObjects.Image[]) {
-      sat.x -= 190 * dt;
-      sat.rotation += 0.2 * dt;
-      if (!sat.getData("spotted") && Phaser.Math.Distance.Between(sat.x, sat.y, this.rocket.x, this.rocket.y) < 90) {
-        sat.setData("spotted", true);
-        actions.awardSighting("an old satellite");
-      }
-      if (sat.x < -80) sat.destroy();
+      const egg = sat.getData("egg") as EasterEgg;
+      sat.x -= egg.speed * dt;
+      sat.rotation += egg.spin * dt;
+      if (sat.x < -120) sat.destroy();
     }
+    this.updateCallouts(dt);
 
     runStore.set({ rocketLock: Math.round(this.lock) });
 

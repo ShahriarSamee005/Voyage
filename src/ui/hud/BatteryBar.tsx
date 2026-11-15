@@ -25,7 +25,7 @@ export function BatteryBar({
     <div
       className={`flex gap-[3px] ${alert ? "animate-[lowbat-blink_1s_linear_infinite]" : ""}`}
       role="img"
-      aria-label={`Battery charge ${Math.round(percent)} percent${alert ? " — low" : ""}`}
+      aria-label={`Battery charge ${Math.round(percent)} percent${alert ? ", low" : ""}`}
     >
       {Array.from({ length: SEGMENTS }, (_, i) => (
         <div

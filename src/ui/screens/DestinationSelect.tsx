@@ -3,19 +3,19 @@
 import { useEffect, useRef } from "react";
 import { actions } from "@/game/state/runStore";
 
-// Rover terminal / destination select (team layout, Nov 15), placed per "terminal layout
-// reference.png": the team's terminal-room art, the Destination Select panel above the console,
-// Back at the bottom left, and Confirm / Launch in the panel's empty right-hand slot.
+// Rover terminal / destination select (team layout v2, "terminal-simplified-v2", Nov 15): the
+// simplified room art with the Select Destination panel on the back wall, Back at the bottom left,
+// and Confirm / Launch in the empty slot under the mission text in the panel's right-hand column.
 // Mars is playable; the Moon card is shown locked as a future mission (no Moon gameplay).
+// The v2 panel has the real mission text baked in, so nothing is drawn over it.
 //
-// The panel art has a generic mission blurb baked in ("~30–60 min", "past habitability",
-// "collect samples") that doesn't match this game, so that one block is covered with the panel's
-// own colour and the real mission text (design.md §5.2: rover recovery only; a run is ~10 min).
+// Motion: the panel drops in, then Launch rises and Back slides in from the left; after that both
+// buttons idle with a slow glow (styles in globals.css, switched off for reduced motion).
 
 const ART = "/assets/dashboards/web";
-// Panel art is 1536×901 (trimmed). Positions below are fractions of that image.
-const PANEL = { left: 160, top: 6, width: 960 };
-const PANEL_H = Math.round((PANEL.width * 901) / 1536);
+// Panel art is 1520×780. Positions below are fractions of that image.
+const PANEL = { left: 160, top: 28, width: 960 };
+const PANEL_H = Math.round((PANEL.width * 780) / 1520);
 
 export function DestinationSelect() {
   const launchRef = useRef<HTMLButtonElement>(null);
@@ -24,57 +24,42 @@ export function DestinationSelect() {
   return (
     <div className="pointer-events-auto relative h-full w-full overflow-hidden bg-[#1b1630]">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={`${ART}/terminal_bg.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      <h2 className="sr-only">Rover terminal — destination select</h2>
+      <img src={`${ART}/terminal_room.webp`} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      <h2 className="sr-only">Rover terminal: destination select</h2>
 
-      <div className="absolute" style={{ left: PANEL.left, top: PANEL.top, width: PANEL.width, height: PANEL_H }}>
+      <div
+        className="term-panel-in absolute"
+        style={{ left: PANEL.left, top: PANEL.top, width: PANEL.width, height: PANEL_H }}
+      >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`${ART}/terminal_panel.webp`}
-          alt="Destinations: Mars, playable and selected. The Moon, locked, a future mission."
+          src={`${ART}/terminal_select.webp`}
+          alt="Select destination. Mars, available and selected. The Moon, locked. Mars expedition: find Sojourner, Spirit and Opportunity. 3 rovers, about 10 minutes. Low power, soft soil, dust storms."
           className="absolute inset-0 h-full w-full"
         />
 
-        {/* Real mission summary over the baked placeholder blurb. */}
-        <div
-          className="absolute flex flex-col justify-center bg-[#051428] pl-[3px] pr-1"
-          style={{ left: "58.2%", top: "51.2%", width: "37.4%", height: "23.6%" }}
-        >
-          <p className="text-[14px] leading-[1.35] text-[#e8f1f8]">
-            Find three explorers left behind — <strong>Sojourner</strong>, <strong>Spirit</strong> and{" "}
-            <strong>Opportunity</strong> — and learn how each mission ended.
-          </p>
-          <dl className="mt-2 grid grid-cols-[112px_1fr] gap-y-0.5 text-[13px] leading-snug">
-            <dt className="font-mono text-[11.5px] tracking-wider text-[#5fd8ec]">ROVERS:</dt>
-            <dd className="text-[#e8f1f8]">3 to find</dd>
-            <dt className="font-mono text-[11.5px] tracking-wider text-[#5fd8ec]">HAZARDS:</dt>
-            <dd className="whitespace-nowrap text-[#e8f1f8]">Low power · soft soil · dust storm</dd>
-            <dt className="font-mono text-[11.5px] tracking-wider text-[#5fd8ec]">MISSION TIME:</dt>
-            <dd className="text-[#e8f1f8]">About 10 minutes</dd>
-          </dl>
+        <div className="absolute -translate-x-1/2 -translate-y-1/2" style={{ left: "79%", top: "77.5%", width: "34.5%" }}>
+          <button
+            ref={launchRef}
+            type="button"
+            onClick={actions.launchMission}
+            aria-label="Confirm and launch mission"
+            className="term-launch-in block w-full rounded-md outline-none transition hover:scale-[1.03] hover:brightness-125 focus-visible:brightness-125 focus-visible:[filter:drop-shadow(0_0_6px_#b9ffe0)] active:scale-[0.98]"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={`${ART}/btn_launch.webp`} alt="" className="term-launch-idle block w-full" />
+          </button>
         </div>
-
-        <button
-          ref={launchRef}
-          type="button"
-          onClick={actions.launchMission}
-          aria-label="Confirm and launch mission"
-          className="absolute -translate-x-1/2 -translate-y-1/2 rounded-md outline-none transition hover:brightness-125 focus-visible:brightness-125 focus-visible:[filter:drop-shadow(0_0_6px_#b9ffe0)]"
-          style={{ left: "75.6%", top: "81%", width: "39.5%" }}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`${ART}/btn_launch.webp`} alt="" className="block w-full" />
-        </button>
       </div>
 
       <button
         type="button"
         onClick={actions.backToTitle}
         aria-label="Back to title"
-        className="absolute bottom-[16px] left-[12px] w-[140px] outline-none transition hover:brightness-125 focus-visible:brightness-125 focus-visible:[filter:drop-shadow(0_0_6px_#9ff4ff)]"
+        className="term-back-in absolute bottom-[16px] left-[12px] w-[140px] outline-none transition hover:brightness-125 focus-visible:brightness-125 focus-visible:[filter:drop-shadow(0_0_6px_#9ff4ff)]"
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={`${ART}/btn_back.webp`} alt="" className="block w-full" />
+        <img src={`${ART}/btn_back.webp`} alt="" className="term-back-idle block w-full" />
       </button>
     </div>
   );

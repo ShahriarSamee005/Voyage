@@ -26,7 +26,7 @@ export const scripts: CinematicScripts = {
     "speaker": "mission_control",
     "lines": [
       "Approaching Mars.",
-      "In 1997, Mars Pathfinder carried Sojourner—the first rover to explore this planet.",
+      "In 1997, Mars Pathfinder carried Sojourner, the first rover to explore this planet.",
       "A parachute and rockets slowed its descent. Giant airbags cushioned the landing as the spacecraft bounced across the Martian surface.",
       "Years later, our own lander is approaching the same red world.",
       "The technology has changed. But the reason we explore remains the same: to discover what lies beyond.",

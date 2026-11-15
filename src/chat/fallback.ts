@@ -43,5 +43,5 @@ export function fallbackAnswer(rover: Rover, question: string): string {
     if (score > best.score) best = { score, answer: pair.a };
   }
   if (best.score >= 1) return best.answer;
-  return `I don't remember that. I'm ${rover.name} — ask me about my mission, what I discovered, or what happened to me.`;
+  return `I don't remember that. I'm ${rover.name}. Ask me about my mission, what I discovered, or what happened to me.`;
 }

@@ -58,6 +58,87 @@ canvas {
   }
 }
 
+/* Rover Hub entry: each card arrives from its own side, staggered. */
+@keyframes hub-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes hub-drop {
+  from {
+    opacity: 0;
+    transform: translateY(-46px);
+  }
+}
+@keyframes hub-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-80px);
+  }
+}
+@keyframes hub-from-right {
+  from {
+    opacity: 0;
+    transform: translateX(80px);
+  }
+}
+@keyframes hub-rise {
+  from {
+    opacity: 0;
+    transform: translateY(36px) scale(0.96);
+  }
+}
+@keyframes hub-ping {
+  0% {
+    box-shadow: 0 0 0 0 rgba(104, 215, 233, 0.6);
+  }
+  100% {
+    box-shadow: 0 0 0 10px rgba(104, 215, 233, 0);
+  }
+}
+
+/* Rover Hub story: slow photo drift, signal rings, line drawing, chapter countdown. */
+@keyframes hub-kenburns {
+  from {
+    transform: scale(1);
+  }
+  to {
+    transform: scale(1.09);
+  }
+}
+@keyframes hub-ring {
+  from {
+    opacity: 0.9;
+    transform: scale(0.55);
+  }
+  to {
+    opacity: 0;
+    transform: scale(1.6);
+  }
+}
+@keyframes hub-draw {
+  from {
+    stroke-dashoffset: 420;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+@keyframes hub-countdown {
+  to {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes hub-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+
 /* Low-battery warning: the battery indicator (bar + %) blinks red. */
 @keyframes lowbat-blink {
   0%,
@@ -70,8 +151,75 @@ canvas {
   }
 }
 
+/* Rover terminal (destination select): panel drops in, then Launch rises and Back slides in;
+   afterwards both buttons idle with a slow glow (Back's runs out of phase with Launch's). */
+@keyframes term-panel-in {
+  from {
+    opacity: 0;
+    transform: translateY(-16px) scale(0.97);
+  }
+}
+@keyframes term-rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.94);
+  }
+}
+@keyframes term-from-left {
+  from {
+    opacity: 0;
+    transform: translateX(-36px);
+  }
+}
+@keyframes term-launch-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 1px rgba(94, 255, 192, 0.25));
+    transform: scale(1);
+  }
+  50% {
+    filter: drop-shadow(0 0 9px rgba(94, 255, 192, 0.7));
+    transform: scale(1.015);
+  }
+}
+@keyframes term-back-glow {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 0 rgba(120, 230, 255, 0));
+  }
+  50% {
+    filter: drop-shadow(0 0 6px rgba(120, 230, 255, 0.5));
+  }
+}
+.term-panel-in {
+  animation: term-panel-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+.term-launch-in {
+  animation: term-rise-in 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 0.35s both;
+}
+.term-back-in {
+  animation: term-from-left 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) 0.5s both;
+}
+.term-launch-idle {
+  animation: term-launch-glow 2.4s ease-in-out 0.9s infinite;
+}
+.term-back-idle {
+  animation: term-back-glow 3.2s ease-in-out 1.6s infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   * {
     animation-duration: 0.01ms !important;
   }
+  /* Looping glows would flicker at 0.01ms: switch them off instead. */
+  .term-launch-idle,
+  .term-back-idle {
+    animation: none !important;
+  }
+}
+
+/* Rover Hub: thin cyan scrollbars inside the cards. */
+.hub-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(104, 215, 233, 0.55) transparent;
 }

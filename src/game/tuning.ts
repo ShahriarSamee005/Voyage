@@ -21,9 +21,20 @@ export const TUNING = {
   lowBatteryWarning: 25,
   minChargeToDriveAfterEmpty: 10, // at 0% the rover waits for this much solar charge (soft recovery)
 
-  // Opportunity: after Continue the storm hits; systems drain until power preservation is engaged.
-  severeStormLoadPerSecond: 2.5, // net ≈ −1%/s while stationary without survival mode
-  survivalSecondsToPass: 8, // hold still in survival mode this long and the storm passes
+  // Opportunity: the storm hits and the rover doesn't make it (team decision, Nov 15).
+  // After Continue the rover heads for the final checkpoint; the storm hits on the way, once it has
+  // covered this share of the distance, or after this many seconds if the player wanders off.
+  stormTriggerProgress: 0.45,
+  stormTriggerSeconds: 15,
+  // Timeline in seconds of play after the "storm hits" dialogue closes:
+  stormEmergencyChargeAt: 2.5, // the rover spends all its coins on one last charge
+  stormPanelDamageAt: 7, // a gust damages the solar panels: no more charging
+  stormShutdownBy: 22, // the drain speeds up if needed so the battery is empty by now
+  stormSignalLostDelay: 4, // offline and unmoving this long before the "Signal lost" message
+  stormDrainPerSecond: 3.5, // battery drain in the storm (systems + heaters, no sunlight)
+  stormDrainPreservedPerSecond: 2, // with power preservation engaged: slower, but still draining
+  emergencyChargePerCoin: 3,
+  emergencyChargeMax: 30,
 
   // Coins (earned only, no real money) — PRD §4.5
   startCoins: 3,

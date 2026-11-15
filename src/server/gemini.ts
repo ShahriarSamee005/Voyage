@@ -44,7 +44,7 @@ export async function generateAnswer(systemPrompt: string, question: string): Pr
     const timedOut = err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError");
     // Server log only (never sent to the browser): include the underlying reason for diagnosis.
     const reason = err instanceof Error ? `${err.name}: ${err.message}${err.cause ? ` (${String(err.cause)})` : ""}` : String(err);
-    throw new ChatProviderError(timedOut ? "Gemini timed out" : `Gemini unreachable — ${reason}`, timedOut ? "timeout" : "upstream");
+    throw new ChatProviderError(timedOut ? "Gemini timed out" : `Gemini unreachable: ${reason}`, timedOut ? "timeout" : "upstream");
   }
 
   if (!res.ok) {

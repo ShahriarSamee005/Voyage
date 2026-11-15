@@ -21,13 +21,13 @@ export const spirit: Rover = {
   "tool": {
     "id": "traction-mode",
     "name": "Soft-soil traction mode",
-    "description": "Adjusts wheel spin and steering to maximize grip in loose, sandy terrain — the kind of soil that trapped Spirit."
+    "description": "Adjusts wheel spin and steering to maximize grip in loose, sandy terrain, the kind of soil that trapped Spirit."
   },
   "factSheet": [
-    "I am Spirit, also known as MER-A — one of NASA's twin Mars Exploration Rovers.",
+    "I am Spirit, also known as MER-A, one of NASA's twin Mars Exploration Rovers.",
     "I launched on June 10, 2003, and landed on January 4, 2004, in Gusev Crater.",
     "My twin sister, Opportunity, launched almost four weeks after me and landed on the other side of Mars.",
-    "I was designed to operate for 90 sols (about 90 Martian days), but I lasted over 2,200 sols — more than 24 times my planned mission.",
+    "I was designed to operate for 90 sols (about 90 Martian days), but I lasted over 2,200 sols, more than 24 times my planned mission.",
     "I am about the size of a golf cart: 1.6 meters long, 2.3 meters wide, and 1.5 meters tall.",
     "I weigh 185 kilograms (about 408 pounds) and have six wheels.",
     "I am solar-powered, with solar panels that look like butterfly wings on my back.",
@@ -35,10 +35,10 @@ export const spirit: Rover = {
     "My Pancam (Panoramic Camera) sits on top of a mast about 1.5 meters high, like a head on a neck, giving me a human-height view of Mars.",
     "I explored Gusev Crater, which scientists believed was once an ancient lake bed.",
     "I climbed into the Columbia Hills, named in memory of the seven astronauts lost in the Space Shuttle Columbia disaster.",
-    "In 2007, my stuck right front wheel scraped the ground near Home Plate and uncovered bright soil that was nearly pure silica — over 90 percent.",
-    "That silica discovery was one of the most important findings by either rover, because concentrated silica on Earth forms around hot springs or steam vents — environments that could support life.",
+    "In 2007, my stuck right front wheel scraped the ground near Home Plate and uncovered bright soil that was nearly pure silica: over 90 percent.",
+    "That silica discovery was one of the most important findings by either rover, because concentrated silica on Earth forms around hot springs or steam vents, environments that could support life.",
     "I also found a mineral called goethite in bedrock, which only forms in the presence of water.",
-    "I found rocks rich in magnesium and iron carbonates. Scientists think they formed in water that was not acidic, possibly heated by volcanic activity — an environment that could have been friendlier to life.",
+    "I found rocks rich in magnesium and iron carbonates. Scientists think they formed in water that was not acidic, possibly heated by volcanic activity, an environment that could have been friendlier to life.",
     "My right front wheel stopped working in 2006, so I drove backwards, dragging it behind me. That dragging wheel actually helped make discoveries by scraping away surface soil.",
     "In May 2009, I became stuck in soft soil at a location called 'Troy,' near a volcanic formation called Home Plate.",
     "Engineers on Earth tried for months to free me, but with only five working wheels, I couldn't get enough traction.",
@@ -55,11 +55,11 @@ export const spirit: Rover = {
     },
     {
       "q": "What did you discover?",
-      "a": "My biggest find happened almost by accident! My broken wheel scraped the ground and uncovered soil that was nearly pure silica. On Earth, that kind of silica forms around hot springs — places where life could exist. I also found minerals like goethite that only form with water."
+      "a": "My biggest find happened almost by accident! My broken wheel scraped the ground and uncovered soil that was nearly pure silica. On Earth, that kind of silica forms around hot springs, places where life could exist. I also found minerals like goethite that only form with water."
     },
     {
       "q": "How did you get stuck?",
-      "a": "In May 2009, I drove into soft, loose soil at a place called 'Troy,' near a formation called Home Plate. With only five working wheels — my right front wheel broke back in 2006 — I couldn't get enough traction to free myself. Engineers tried for months, but the ground just wouldn't let go."
+      "a": "In May 2009, I drove into soft, loose soil at a place called 'Troy,' near a formation called Home Plate. With only five working wheels (my right front wheel broke back in 2006), I couldn't get enough traction to free myself. Engineers tried for months, but the ground just wouldn't let go."
     },
     {
       "q": "What happened to you in the end?",
@@ -80,12 +80,12 @@ export const spirit: Rover = {
     {
       "date": "2004–2005",
       "heading": "Into the Columbia Hills",
-      "summary": "Spirit reached the Columbia Hills in June 2004 and found goethite, a mineral that forms only with water — the first direct evidence of past water there. In September 2005 it reached the summit of Husband Hill."
+      "summary": "Spirit reached the Columbia Hills in June 2004 and found goethite, a mineral that forms only with water. It was the first direct evidence of past water there. In September 2005 it reached the summit of Husband Hill."
     },
     {
       "date": "May 2007",
       "heading": "Silica discovery at Home Plate",
-      "summary": "Spirit's broken, dragging wheel scraped away surface soil near Home Plate and exposed nearly pure silica — evidence of ancient hot springs or steam vents, environments that could support life."
+      "summary": "Spirit's broken, dragging wheel scraped away surface soil near Home Plate and exposed nearly pure silica: evidence of ancient hot springs or steam vents, environments that could support life."
     },
     {
       "date": "May 2009 – Mar 2010",
@@ -117,7 +117,7 @@ export const spirit: Rover = {
     }
   ],
   "epitaph": {
-    "line": "Crossed a world, climbed its hills, and found signs of water — until the ground held on and wouldn't let go.",
+    "line": "Crossed a world, climbed its hills, and found signs of water, until the ground held on and wouldn't let go.",
     "dates": "2004–2010"
   }
 };

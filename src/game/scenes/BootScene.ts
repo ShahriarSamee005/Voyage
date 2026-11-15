@@ -62,8 +62,13 @@ export class BootScene extends Phaser.Scene {
       this.load.image(k, `/assets/landing/${k}.webp`);
     }
     for (let i = 0; i < 6; i++) this.load.image(`pf_lander_${i}`, `/assets/landing/pf_lander_${i}.webp`);
+    // Rocket mini-game Easter eggs (B2): trimmed WebP copies of new_assets/rocket_minigame.
+    for (const k of ["delta2_stage", "mars_odyssey", "phobos"]) this.load.image(k, `/assets/rocket/eggs/${k}.webp`);
     this.load.image("atlas_v", "/assets/rocket/atlas_v.png");
     this.load.image("atlas_v_pad", "/assets/rocket/atlas_v_pad.png");
+    // Ending backdrop (team art, Nov 15): dusty Mars sky with Earth as one bright point.
+    // 1280×720 WebP copy of public/assets/ending screen/mars-landscape-game-style-1920x1080.png.
+    this.load.image("ending_bg", "/assets/ending/ending_bg.webp");
   }
 
   create() {
@@ -82,6 +87,9 @@ export class BootScene extends Phaser.Scene {
       "rock_medium_1",
       "rock_medium_2",
       ...GROUND_DECALS,
+      "delta2_stage",
+      "mars_odyssey",
+      "phobos",
       "tall_rock_formation_1",
       "wide_rock_formation_1",
       ...["entry", "chute_modern", "crane_0", "crane_1", "pf_descent", "airbag_0", "airbag_1", "airbag_2"],

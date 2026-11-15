@@ -26,7 +26,8 @@ export function Overlay() {
 
   useEffect(() => {
     if (!toast) return;
-    const id = setTimeout(() => actions.clearToast(), 2600);
+    // Longer toasts (Easter-egg facts) stay up long enough to read.
+    const id = setTimeout(() => actions.clearToast(), Math.max(2600, toast.length * 55));
     return () => clearTimeout(id);
   }, [toast]);
 
@@ -37,8 +38,17 @@ export function Overlay() {
       {stage === "rocket" && <RocketHud />}
       <CinematicLayer />
       {toast && !hubOpen && (
-        <div data-hud-avoid className="absolute left-1/2 top-28 -translate-x-1/2 rounded-full border border-ui-cyan/60 bg-ui-background/90 px-5 py-2 font-mono text-[15px] tracking-wide text-ui-cyan">
-          {toast}
+        <div
+          data-hud-avoid
+          className={`absolute left-1/2 top-28 max-w-[760px] -translate-x-1/2 border border-ui-cyan/60 bg-ui-background/90 px-5 py-2 text-center font-mono text-[15px] tracking-wide text-ui-cyan ${
+            toast.includes("\n") ? "rounded-xl" : "rounded-full"
+          }`}
+        >
+          {toast.split("\n").map((part, i) => (
+            <div key={i} className={i ? "mt-1 font-sans text-[14px] tracking-normal text-ui-text" : ""}>
+              {part}
+            </div>
+          ))}
         </div>
       )}
       {dialogue && <DialoguePanel dialogue={dialogue} />}

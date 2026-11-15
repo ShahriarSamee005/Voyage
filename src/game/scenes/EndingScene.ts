@@ -4,11 +4,13 @@ import { GAME_HEIGHT as H, GAME_WIDTH as W } from "../constants";
 import { playLines, totalSeconds, wait } from "../cinematic";
 import { actions } from "../state/runStore";
 
-// Reflective ending (appflow §2.13): our rover's power fades as it looks toward a single
-// distant bright point — Earth — and speaks the APPROVED final lines. Automatic, unskippable.
+// Reflective ending (appflow §2.13): after the storm shut it down, our rover sits dark under a
+// dusty sky, looking toward a single distant bright point — Earth — and speaks the APPROVED final
+// lines. Automatic, unskippable. Backdrop: team art (Nov 15), with Earth already painted in.
 
-const HORIZON = 520;
 const EXTRA_PER_LINE = 1.2; // slower, quieter pacing than the rest of the game
+// Earth's bright point in the backdrop (1280×720 copy of the team's 1920×1080 art).
+const EARTH = { x: 657, y: 105 };
 
 export class EndingScene extends Phaser.Scene {
   constructor() {
@@ -19,39 +21,24 @@ export class EndingScene extends Phaser.Scene {
     this.cameras.main.fadeIn(1500, 0, 0, 0);
     const total = totalSeconds(scripts.ending, EXTRA_PER_LINE);
 
-    // Dusk sky: deepening blue above a dim rust horizon.
-    const sky = this.add.graphics();
-    const bands = [0x0b0f24, 0x141634, 0x221c3c, 0x3a2340, 0x5a2e36, 0x7a3e2e];
-    bands.forEach((c, i) => sky.fillStyle(c, 1).fillRect(0, (i * HORIZON) / bands.length, W, HORIZON / bands.length + 1));
-    const rng = new Phaser.Math.RandomDataGenerator(["voyage-ending"]);
-    const stars = Array.from({ length: 90 }, () =>
-      this.add.image(rng.between(0, W), rng.between(0, HORIZON - 120), "px_white").setScale(1 / 3).setAlpha(0),
+    this.add.image(0, 0, "ending_bg").setOrigin(0).setDisplaySize(W, H);
+    // The storm is settling: a faint veil of dust thins out over the monologue.
+    const veil = this.add.rectangle(0, 0, W, H, 0x6a3a26, 0.35).setOrigin(0);
+    this.tweens.add({ targets: veil, fillAlpha: 0.08, duration: total * 700, delay: 1500, ease: "Sine.easeOut" });
+
+    // Earth: a soft breathing glow around the painted point (appflow §2.13: a point, not a planet).
+    const glow = this.add.circle(EARTH.x, EARTH.y, 12, 0xcfe6ff, 0).setBlendMode(Phaser.BlendModes.ADD);
+    this.tweens.add({ targets: glow, fillAlpha: { from: 0, to: 0.3 }, duration: 2000, delay: 2500 });
+    this.time.delayedCall(4500, () =>
+      this.tweens.add({ targets: glow, scale: { from: 1, to: 1.35 }, duration: 1800, yoyo: true, repeat: -1, ease: "Sine.easeInOut" }),
     );
-    this.tweens.add({ targets: stars, alpha: { from: 0, to: 0.75 }, duration: total * 600, delay: 1500 });
 
-    // Earth: one small bright point above the horizon — not a detailed planet (appflow §2.13).
-    const earthX = W * 0.78;
-    const earthY = HORIZON - 190;
-    const glow = this.add.circle(earthX, earthY, 9, 0x9fd3ff, 0.25);
-    const earth = this.add.circle(earthX, earthY, 3, 0xd8f0ff);
-    this.tweens.add({ targets: [glow], alpha: { from: 0.15, to: 0.4 }, duration: 1600, yoyo: true, repeat: -1 });
-    earth.setAlpha(0);
-    glow.setAlpha(0);
-    this.tweens.add({ targets: [earth], alpha: 1, duration: 2000, delay: 2500 });
-
-    // Ground and silhouette rocks.
-    this.add.rectangle(0, HORIZON, W, H - HORIZON, 0x3b1f17).setOrigin(0);
-    this.add.tileSprite(0, HORIZON, W, H - HORIZON, "ground_mirror").setOrigin(0).setAlpha(0.35).setTint(0x6a4a5a);
-    for (let i = 0; i < 6; i++) {
-      this.add.image(rng.between(0, W), rng.between(HORIZON + 30, H - 20), rng.pick(["rock_medium_1", "rock_large_1"]))
-        .setScale(rng.realInRange(0.3, 0.6))
-        .setTint(0x2a1712);
-    }
-
-    // Our rover, facing the distant Earth; its power (light) fades over the monologue.
-    const rover = this.add.image(W * 0.3, HORIZON + 50, "player_E", "body").setOrigin(0.5, 1).setScale(0.6); // faces right, toward Earth
+    // Our rover in the open ground at the right (above the subtitle box), turned toward the distant
+    // Earth. It is already out of power; what light it has left fades over the monologue.
+    this.add.image(1010, 548, "soft_shadow").setDisplaySize(120, 28).setAlpha(0.5);
+    const rover = this.add.image(1010, 548, "player_NW", "body").setOrigin(0.5, 0.85).setScale(0.58);
     this.tweens.addCounter({
-      from: 255,
+      from: 190,
       to: 70,
       duration: total * 1000,
       delay: 1500,

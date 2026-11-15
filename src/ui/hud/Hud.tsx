@@ -31,11 +31,14 @@ export function Hud() {
   // Show the tool that belongs to the current leg, once unlocked.
   const legTool = useRun((s) => {
     const id = s.activeEncounterRover ? LEG_TOOL[s.activeEncounterRover] : undefined;
-    return id && s.unlockedTools.includes(id) && s.encounterStep !== "complete" ? id : null;
+    return id && s.unlockedTools.includes(id) && s.encounterStep !== "complete" && !s.roverOffline ? id : null;
   });
   const toolEngaged = useRun((s) => s.toolEngaged);
   const canQuickCharge = useRun((s) => actions.canQuickCharge(s));
-  const showQuickCharge = useRun((s) => s.batteryChargePercent < 80);
+  const showQuickCharge = useRun((s) => s.batteryChargePercent < 80 || s.severeStorm);
+  // Opportunity's storm: no quick charge, then no coins, damaged panels, and finally no power.
+  const storm = useRun((s) => s.severeStorm);
+  const panelDamaged = useRun((s) => s.panelDamaged);
   const exploring = useRun((s) => s.mode === "explore" && !s.dialogue && !s.pauseOpen);
   // Low power: only the battery indicator itself (bar + %) blinks red — nothing else changes.
   const lowPower = useRun((s) => s.outOfPower || s.batteryChargePercent < TUNING.lowBatteryWarning);
@@ -54,11 +57,15 @@ export function Hud() {
         </div>
         <BatteryBar percent={battery} wide alert={lowPower} />
         <div className="mt-2 flex items-center justify-between font-mono text-[13px]">
-          <span className={charging ? "text-ui-cyan" : "text-ui-muted"}>
-            ☀ {SOLAR_LABEL[solar]}
-            {charging ? " · CHARGING" : ""}
-          </span>
-          <span className="text-ui-amber" aria-label={`${coins} coins`}>
+          {panelDamaged ? (
+            <span className="text-ui-danger">☀ PANELS DAMAGED</span>
+          ) : (
+            <span className={charging ? "text-ui-cyan" : "text-ui-muted"}>
+              ☀ {SOLAR_LABEL[solar]}
+              {charging ? " · CHARGING" : ""}
+            </span>
+          )}
+          <span className={storm && coins === 0 ? "text-ui-danger" : "text-ui-amber"} aria-label={`${coins} coins`}>
             ◉ {coins}
           </span>
         </div>
@@ -70,7 +77,13 @@ export function Hud() {
             className="pointer-events-auto mt-2.5 w-full rounded border border-ui-amber/70 px-2 py-1 font-mono text-[12px] tracking-wider text-ui-amber hover:bg-ui-amber/15 disabled:cursor-not-allowed disabled:opacity-40 focus-visible:outline-2 focus-visible:outline-ui-amber"
             title="Optional: spend coins to skip the solar-charging wait"
           >
-            ⚡ QUICK CHARGE +{TUNING.quickChargeAmount}% · {TUNING.quickChargeCost}◉ <span className="text-ui-muted">[C]</span>
+            {storm ? (
+              coins === 0 ? "⚡ NO COINS LEFT" : "⚡ QUICK CHARGE UNAVAILABLE · STORM"
+            ) : (
+              <>
+                ⚡ QUICK CHARGE +{TUNING.quickChargeAmount}% · {TUNING.quickChargeCost}◉ <span className="text-ui-muted">[C]</span>
+              </>
+            )}
           </button>
         )}
       </div>
@@ -107,7 +120,8 @@ export function Hud() {
         >
           <span>
             Jump point reached. Press <kbd className="rounded border border-ui-cyan px-1.5 font-mono text-ui-cyan">E</kbd> to jump to{" "}
-            <strong>{nextPlace}</strong> <span className="text-ui-muted">— or keep exploring</span>
+            <strong>{nextPlace}</strong>
+            <span className="text-ui-muted">, or keep exploring</span>
           </span>
           <button
             type="button"
