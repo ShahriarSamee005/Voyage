@@ -49,6 +49,10 @@ export class BootScene extends Phaser.Scene {
     // Exact 1/4-size copies of the team's high-res originals (887×1774 rocket, trimmed 3×2 px of
     // transparent padding first; 1024×1536 pad) — drawn 1:1, saves ~2.3 MB on venue Wi-Fi.
     // Also used by the Rocket mini-game (rocket only).
+    // Rocket mini-game asteroids: team AI art, padding and faint haze trimmed, resized so each is
+    // its size group's largest on-screen width (small 38×25 from 128×128, medium 51×48 from 256×256).
+    this.load.image("asteroid_small", "/assets/rocket/asteroid_small.png");
+    this.load.image("asteroid_medium", "/assets/rocket/asteroid_medium.png");
     this.load.image("atlas_v", "/assets/rocket/atlas_v.png");
     this.load.image("atlas_v_pad", "/assets/rocket/atlas_v_pad.png");
   }
@@ -68,6 +72,9 @@ export class BootScene extends Phaser.Scene {
       "rock_large_2",
       "rock_medium_1",
       "rock_medium_2",
+      // Asteroids are drawn at 0.67–1× of their copy size depending on the random spawn size.
+      "asteroid_small",
+      "asteroid_medium",
     ];
     for (const key of smooth) this.textures.get(key).setFilter(Phaser.Textures.FilterMode.LINEAR);
     makeGroundTexture(this);

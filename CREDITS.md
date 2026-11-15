@@ -22,6 +22,7 @@ Mission facts are checked against NASA/JPL pages (science.nasa.gov, jpl.nasa.gov
 | Rover chat | Google Gemini (`gemini-3.5-flash-lite`) via `/api/chat` | Answers only from each rover's verified fact sheet; offline scripted fallback. |
 | Pixel-art sprites & screen concepts | AI image generation (supplied by the team in `assets/`) | Processed into transparent frames; not used as factual sources. |
 | Atlas V rocket (liftoff + rocket mini-game) and launch pad | AI image generation (supplied by the team) | The game uses exact 1/4-size copies in `public/assets/rocket/`; otherwise unedited. Emblems on the rocket are fictional, not NASA or ULA logos. |
+| Asteroids in the rocket mini-game (small and medium) | AI image generation (supplied by the team) | The game uses resized copies in `public/assets/rocket/` with the empty border and a faint background haze removed; otherwise unedited. Illustrative, not real asteroids. |
 | Cinematic art (lander, Earth, Pathfinder airbags/petals, satellite) | Drawn procedurally in code | Simplified; the fictional Voyage lander is deliberately unlike Pathfinder. |
 | Music & sound effects | Synthesized live in code (Web Audio API) | Original; no third-party audio files. |
 | Code | AI-assisted development (Claude) | Reviewed and tested by the team. |

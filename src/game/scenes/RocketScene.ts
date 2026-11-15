@@ -20,6 +20,13 @@ const TAIL_OFFSET = 54;
 const HIT_RADIUS = 6;
 const HIT_HALF_LENGTH = 38;
 
+// Asteroids replace the old procedural "debris" (a 40×32 texture whose drawn rock was 32×24) and keep
+// its sizes and hitbox exactly: at spawn scale s the rock is 32·s px wide and its hit circle has
+// radius 20·s (the old displayWidth / 2). Rolls below 1.2 use the small sprite, the rest the medium.
+const PLACEHOLDER_ROCK_WIDTH = 32;
+const PLACEHOLDER_HIT_RADIUS = 20;
+const ASTEROID_SPLIT = 1.2;
+
 export class RocketScene extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Image;
   private flame!: Phaser.GameObjects.Particles.ParticleEmitter;
@@ -135,7 +142,13 @@ export class RocketScene extends Phaser.Scene {
       this.spawnTimer = Phaser.Math.FloatBetween(0.7, 1.1);
       const cy = this.centerAt(this.elapsed + (W + 40 - this.rocket.x) / scroll);
       const y = Phaser.Math.Clamp(cy + Phaser.Math.Between(-110, 110), 30, H - 30);
-      const d = this.add.image(W + 40, y, "debris").setScale(Phaser.Math.FloatBetween(0.8, 1.6));
+      // Same random size range as the old placeholder (0.8–1.6): smaller rolls use the small asteroid,
+      // larger rolls the medium one. Each rock is drawn at the placeholder rock's visible width.
+      const size = Phaser.Math.FloatBetween(0.8, 1.6);
+      const key = size < ASTEROID_SPLIT ? "asteroid_small" : "asteroid_medium";
+      const d = this.add.image(W + 40, y, key);
+      d.setScale((PLACEHOLDER_ROCK_WIDTH * size) / d.width);
+      d.setData("hitRadius", PLACEHOLDER_HIT_RADIUS * size);
       d.setData("spin", Phaser.Math.FloatBetween(-2, 2));
       this.debris.add(d);
     }
@@ -147,7 +160,7 @@ export class RocketScene extends Phaser.Scene {
         obj.destroy();
         continue;
       }
-      if (this.invulnerable <= 0 && this.distanceToHull(obj.x, obj.y) < HIT_RADIUS + obj.displayWidth / 2) {
+      if (this.invulnerable <= 0 && this.distanceToHull(obj.x, obj.y) < HIT_RADIUS + (obj.getData("hitRadius") as number)) {
         // Soft retry: wobble, lose a little lock, keep flying.
         this.invulnerable = 1.2;
         this.hits++;
