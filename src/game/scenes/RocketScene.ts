@@ -9,8 +9,20 @@ import { audio } from "../audio/engine";
 
 const ROCKET_X = 230;
 
+// Atlas V (same texture as the liftoff, 221×443, nose up), shown at 1/4 so the rocket is ~105×15 px.
+const ROCKET_SCALE = 0.25;
+// Origin = centre of the solid art (alpha bounds x 81–139.75, y 10.5–431.75), so it turns about its middle.
+const ROCKET_ORIGIN = { x: 110.375 / 221, y: 221.125 / 443 };
+// Exhaust sits just behind the main engine: half the art length (421 px × 1/4 ≈ 52.7) plus a little.
+const TAIL_OFFSET = 54;
+// Hitbox: a capsule along the rocket body, slightly smaller than the art (≈88×12 px vs ≈105×15).
+// Its area (~1025 px²) matches the old placeholder's 18 px circle (~1018 px²).
+const HIT_RADIUS = 6;
+const HIT_HALF_LENGTH = 38;
+
 export class RocketScene extends Phaser.Scene {
   private rocket!: Phaser.GameObjects.Image;
+  private flame!: Phaser.GameObjects.Particles.ParticleEmitter;
   private corridor!: Phaser.GameObjects.Graphics;
   private debris!: Phaser.GameObjects.Group;
   private sats!: Phaser.GameObjects.Group;
@@ -53,8 +65,13 @@ export class RocketScene extends Phaser.Scene {
     this.corridor = this.add.graphics();
     this.sats = this.add.group();
     this.debris = this.add.group();
-    this.rocket = this.add.image(ROCKET_X, H / 2, "rocket").setAngle(90).setScale(0.9);
-    const flame = this.add.particles(0, 0, "px_flame", {
+    // Nose points right (direction of travel): the upright texture is turned 90° clockwise.
+    this.rocket = this.add
+      .image(ROCKET_X, H / 2, "atlas_v")
+      .setOrigin(ROCKET_ORIGIN.x, ROCKET_ORIGIN.y)
+      .setAngle(90)
+      .setScale(ROCKET_SCALE);
+    this.flame = this.add.particles(0, 0, "px_flame", {
       speedX: { min: -320, max: -200 },
       speedY: { min: -30, max: 30 },
       lifespan: 280,
@@ -62,7 +79,7 @@ export class RocketScene extends Phaser.Scene {
       alpha: { start: 1, end: 0 },
       frequency: 14,
     });
-    flame.startFollow(this.rocket, -70, 0);
+    this.flame.startFollow(this.rocket, -TAIL_OFFSET, 0);
 
     this.keys = this.input.keyboard!.addKeys("W,S,A,D,UP,DOWN,LEFT,RIGHT", false) as Record<string, Phaser.Input.Keyboard.Key>;
     this.cameras.main.fadeIn(500, 0, 0, 0);
@@ -93,6 +110,9 @@ export class RocketScene extends Phaser.Scene {
     this.rocket.y = Phaser.Math.Clamp(this.rocket.y + dy * 300 * dt, 40, H - 40);
     this.rocket.x = Phaser.Math.Clamp(this.rocket.x + dx * 160 * dt, 140, 420);
     this.rocket.setAngle(90 + dy * 10);
+    // Keep the exhaust on the engine as the rocket tilts.
+    const nose = this.noseDir();
+    this.flame.followOffset.set(-nose.x * TAIL_OFFSET, -nose.y * TAIL_OFFSET);
 
     // Trajectory corridor (drawn ahead of the rocket).
     const half = 70;
@@ -127,7 +147,7 @@ export class RocketScene extends Phaser.Scene {
         obj.destroy();
         continue;
       }
-      if (this.invulnerable <= 0 && Phaser.Math.Distance.Between(obj.x, obj.y, this.rocket.x, this.rocket.y) < 18 + obj.displayWidth / 2) {
+      if (this.invulnerable <= 0 && this.distanceToHull(obj.x, obj.y) < HIT_RADIUS + obj.displayWidth / 2) {
         // Soft retry: wobble, lose a little lock, keep flying.
         this.invulnerable = 1.2;
         this.hits++;
@@ -168,6 +188,19 @@ export class RocketScene extends Phaser.Scene {
     this.tweens.add({ targets: this.rocket, x: W + 120, duration: 1600, ease: "Sine.easeIn" });
     this.time.delayedCall(1700, () => this.cameras.main.fadeOut(500, 0, 0, 0));
     this.time.delayedCall(2300, () => actions.setStage("landing"));
+  }
+
+  /** Unit vector from tail to nose (the texture's nose points up, i.e. angle 0 = up). */
+  private noseDir() {
+    const a = this.rocket.rotation - Math.PI / 2;
+    return { x: Math.cos(a), y: Math.sin(a) };
+  }
+
+  /** Distance from a point to the rocket's centre line (the capsule hitbox's core segment). */
+  private distanceToHull(px: number, py: number) {
+    const n = this.noseDir();
+    const t = Phaser.Math.Clamp((px - this.rocket.x) * n.x + (py - this.rocket.y) * n.y, -HIT_HALF_LENGTH, HIT_HALF_LENGTH);
+    return Phaser.Math.Distance.Between(px, py, this.rocket.x + n.x * t, this.rocket.y + n.y * t);
   }
 
   /** Exposed for tuning/QA: seconds the run has taken. */

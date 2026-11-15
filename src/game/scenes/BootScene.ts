@@ -45,6 +45,12 @@ export class BootScene extends Phaser.Scene {
     }
     // Real NASA image shown at the end of the 1997 flashback (PIA00611).
     this.load.image("nasa_pf_day1", "/assets/nasa-photos/sojourner/sojourner-on-mars.jpg");
+    // Earth-liftoff art (Opening scene): Atlas V on its launch pad, team-supplied AI pixel art.
+    // Exact 1/4-size copies of the team's high-res originals (887×1774 rocket, trimmed 3×2 px of
+    // transparent padding first; 1024×1536 pad) — drawn 1:1, saves ~2.3 MB on venue Wi-Fi.
+    // Also used by the Rocket mini-game (rocket only).
+    this.load.image("atlas_v", "/assets/rocket/atlas_v.png");
+    this.load.image("atlas_v_pad", "/assets/rocket/atlas_v_pad.png");
   }
 
   create() {

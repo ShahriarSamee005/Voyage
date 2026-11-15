@@ -1,0 +1,10 @@
+short description
+1. Spent Delta II Third Stage (Star 48B) — Discarded rocket hardware drifting through space after completing its propulsion burn.
+
+2. Comet 2P/Encke — A short-period comet that appears as a rare, distant background Easter egg.
+
+3. Phobos — Mars's largest natural moon, visible as the spacecraft approaches Mars.
+
+4. MAVEN — NASA's Mars atmospheric research orbiter, appearing as a distant spacecraft Easter egg near Mars.
+
+5. 2001 Mars Odyssey — NASA's long-serving Mars orbiter, known for studying the planet and relaying communications from surface missions.
