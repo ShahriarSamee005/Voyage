@@ -45,6 +45,8 @@ export class BootScene extends Phaser.Scene {
     }
     // Ground details that break up the tiled surface (team AI art, fix D1): flat decals, no collision.
     for (const d of GROUND_DECALS) this.load.image(d, `/assets/new_assets/mars_environment/${d}.png`);
+    // Rock formations (team art; trimmed 460 px WebP copies of new_assets/mars_environment/*_rock_formation_1).
+    for (const f of ["tall_rock_formation_1", "wide_rock_formation_1"]) this.load.image(f, `/assets/terrain/formations/${f}.webp`);
     // Real NASA image shown at the end of the 1997 flashback (PIA00611).
     this.load.image("nasa_pf_day1", "/assets/nasa-photos/sojourner/sojourner-on-mars.jpg");
     // Earth-liftoff art (Opening scene): Atlas V on its launch pad, team-supplied AI pixel art.
@@ -80,6 +82,8 @@ export class BootScene extends Phaser.Scene {
       "rock_medium_1",
       "rock_medium_2",
       ...GROUND_DECALS,
+      "tall_rock_formation_1",
+      "wide_rock_formation_1",
       ...["entry", "chute_modern", "crane_0", "crane_1", "pf_descent", "airbag_0", "airbag_1", "airbag_2"],
       ...[0, 1, 2, 3, 4, 5].map((i) => `pf_lander_${i}`),
       // Asteroids are drawn at 0.67–1× of their copy size depending on the random spawn size.

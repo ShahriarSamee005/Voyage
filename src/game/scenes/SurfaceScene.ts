@@ -162,7 +162,7 @@ export class SurfaceScene extends Phaser.Scene {
   /** Set by E's key-down event, consumed once by the next world update. */
   private ePressQueued = false;
   /** Craters placed on the ground; rocks keep clear of them. */
-  private craterZones: { x: number; y: number; r: number }[] = [];
+  private craterZones: { x: number; y: number; r: number; solid: boolean; w: number; h: number }[] = [];
   private shadow!: Phaser.GameObjects.Image;
   // Tire tracks (fix D3): a recycled pool of tread-mark stamps that fade out over time.
   private tracks: { img: Phaser.GameObjects.Image; born: number; alpha: number }[] = [];
@@ -333,8 +333,10 @@ export class SurfaceScene extends Phaser.Scene {
         const y = rand(r + 40, world.height - r - 40);
         if (keepClear(x, y, r)) continue;
         if (key === "large_crater" && offRoute(x, y) < r + 220) continue;
+        if (key === "medium_crater" && offRoute(x, y) < r + 80) continue; // solid now: keep the way clear
         this.add.image(x, y, key).setScale(scale).setFlipX(rng() > 0.5).setDepth(-8);
-        this.craterZones.push({ x, y, r });
+        // Large and medium craters are solid (the rover drives around them); small ones are pockmarks.
+        this.craterZones.push({ x, y, r, solid: key !== "small_crater", w: img.width * scale, h: img.height * scale });
         placed++;
       }
     }
@@ -557,7 +559,90 @@ export class SurfaceScene extends Phaser.Scene {
       group.add(this.add.zone(x, y - h * 0.3, w, h));
       placed++;
     }
+
+    // Solid craters: the bowl (inside the rim) is blocked with a row of circles that trace the
+    // crater's flattened ellipse — the rover bumps the rim and slides around it.
+    for (const c of this.craterZones) {
+      if (!c.solid) continue;
+      const a = c.w * 0.4; // half-width of the blocked bowl
+      const b = c.h * 0.36; // half-height
+      const n = Math.max(1, Math.ceil(a / b));
+      for (let i = 0; i < n; i++) {
+        const ox = n === 1 ? 0 : -a + b + ((2 * (a - b)) / (n - 1)) * i;
+        const z = this.add.zone(c.x + ox, c.y, b * 2, b * 2);
+        group.add(z);
+        (z.body as Phaser.Physics.Arcade.StaticBody).setCircle(b);
+      }
+    }
+
+    if (this.leg.rockFormations) this.buildFormations(group, this.leg.rockFormations);
     return group;
+  }
+
+  /**
+   * Rocky terrain (Sojourner's Ares Vallis is a boulder-strewn flood plain): large rock-formation
+   * sprites (team art) and tight clusters of boulders, all solid, kept off the spawn, the rover,
+   * the jump point and the craters. Collision covers each formation's base only.
+   */
+  private buildFormations(group: Phaser.Physics.Arcade.StaticGroup, spec: { formations: number; clusters: number }) {
+    const { world, spawn, target } = this.leg;
+    const cp = this.leg.checkpoint;
+    const rng = mulberry32(this.leg.rockSeed * 7 + 3);
+    const rand = (lo: number, hi: number) => lo + rng() * (hi - lo);
+    const taken: { x: number; y: number; r: number }[] = [];
+    const free = (x: number, y: number, r: number) =>
+      Phaser.Math.Distance.Between(x, y, spawn.x, spawn.y) > 380 + r &&
+      Phaser.Math.Distance.Between(x, y, target.x, target.y) > 360 + r &&
+      (!cp || Phaser.Math.Distance.Between(x, y, cp.x, cp.y) > 300 + r) &&
+      !this.craterZones.some((c) => Phaser.Math.Distance.Between(x, y, c.x, c.y) < c.r + r + 60) &&
+      !taken.some((t) => Phaser.Math.Distance.Between(x, y, t.x, t.y) < t.r + r + 140);
+
+    // 1) Rock formations: tall spires and wide boulder piles.
+    const kinds = [
+      { key: "tall_rock_formation_1", scale: [0.42, 0.6] },
+      { key: "wide_rock_formation_1", scale: [0.5, 0.75] },
+    ] as const;
+    for (let i = 0, placed = 0; placed < spec.formations && i < 600; i++) {
+      const kind = kinds[placed % kinds.length];
+      const scale = rand(kind.scale[0], kind.scale[1]);
+      const tex = this.textures.get(kind.key).getSourceImage() as HTMLImageElement;
+      const w = tex.width * scale;
+      const r = w / 2;
+      const x = rand(120 + r, world.width - 120 - r);
+      const y = rand(200, world.height - 120);
+      if (!free(x, y, r)) continue;
+      const img = this.add.image(x, y, kind.key).setOrigin(0.5, 0.97).setScale(scale).setFlipX(rng() > 0.5).setDepth(y);
+      this.add.image(x, y - 4, "soft_shadow").setDisplaySize(w * 0.95, w * 0.22).setAlpha(0.45).setDepth(y - 1);
+      group.add(this.add.zone(x, y - img.displayHeight * 0.1, w * 0.8, img.displayHeight * 0.2));
+      taken.push({ x, y, r });
+      placed++;
+    }
+
+    // 2) Boulder clusters: 3–6 rocks packed together.
+    const rocks = ["rock_large_1", "rock_large_2", "rock_medium_1", "rock_medium_2"];
+    for (let i = 0, placed = 0; placed < spec.clusters && i < 600; i++) {
+      const cx = rand(150, world.width - 150);
+      const cy = rand(150, world.height - 150);
+      if (!free(cx, cy, 90)) continue;
+      const n = 3 + Math.floor(rng() * 4);
+      for (let k = 0; k < n; k++) {
+        const ang = rng() * Math.PI * 2;
+        const dist = rng() * 70;
+        const x = cx + Math.cos(ang) * dist;
+        const y = cy + Math.sin(ang) * dist * 0.6;
+        const img = this.add
+          .image(x, y, rocks[Math.floor(rng() * rocks.length)])
+          .setScale(rand(0.32, 0.62))
+          .setOrigin(0.5, 0.8)
+          .setFlipX(rng() > 0.5)
+          .setDepth(y);
+        const w = img.displayWidth * 0.7;
+        const h = img.displayHeight * 0.35;
+        group.add(this.add.zone(x, y - h * 0.3, w, h));
+      }
+      taken.push({ x: cx, y: cy, r: 90 });
+      placed++;
+    }
   }
 
   private buildWeatherLayer() {

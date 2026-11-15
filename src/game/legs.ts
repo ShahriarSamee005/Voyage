@@ -32,6 +32,8 @@ export interface LegConfig {
    * jump to the next region. Null on the last leg.
    */
   checkpoint: { x: number; y: number } | null;
+  /** Extra rocky terrain: big rock formations + tight boulder clusters (all solid). */
+  rockFormations?: { formations: number; clusters: number };
   /** Where the real rover rests on Mars (degrees; N and E positive), for the jump map. */
   site: { lat: number; lon: number };
 }
@@ -51,6 +53,8 @@ export const LEGS: Record<RoverId, LegConfig> = {
     next: "spirit",
     checkpoint: { x: 1700, y: 1540 }, // ~1,150 px from Sojourner: a real drive to the jump point
     site: { lat: 19.13, lon: -33.22 }, // Mars Pathfinder landing site
+    // Ares Vallis is a boulder-strewn flood plain: more clustered rock than the other regions.
+    rockFormations: { formations: 7, clusters: 12 },
   },
   spirit: {
     rover: "spirit",
